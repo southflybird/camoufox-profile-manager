@@ -1,5 +1,6 @@
 """Exercise the bundled custom UI against a disposable local API and database."""
 
+import argparse
 import json
 import os
 import socket
@@ -10,12 +11,19 @@ import time
 from pathlib import Path
 
 import httpx
+import psutil
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run() -> None:
+def run(
+    require_api_key: bool = False, blocked_storage: bool = False, packaged: Path | None = None
+) -> None:
+    synthetic_key = "cpm-custom-synthetic-auth-smoke"
+    report_name = "custom-ui-api-key" if require_api_key else "custom-ui"
+    if packaged:
+        report_name += "-packaged"
     with tempfile.TemporaryDirectory(prefix="cpm-custom-ui-") as temporary:
         work = Path(temporary)
         with socket.socket() as listener:
@@ -26,9 +34,18 @@ def run() -> None:
             key: value for key, value in os.environ.items() if not key.startswith("CPM_")
         }
         environment["CPM_DB_PATH"] = str(work / "profiles.db")
+        if require_api_key:
+            environment["CPM_API_KEY"] = synthetic_key
         with (work / "server.log").open("w", encoding="utf-8") as log:
+            startup = None
+            if packaged and os.name == "nt":
+                startup = subprocess.STARTUPINFO()
+                startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startup.wShowWindow = 0
             server = subprocess.Popen(
-                [
+                [str(packaged.resolve())]
+                if packaged
+                else [
                     sys.executable,
                     "-m",
                     "uvicorn",
@@ -44,9 +61,29 @@ def run() -> None:
                 env=environment,
                 stdout=log,
                 stderr=log,
+                startupinfo=startup,
             )
             try:
-                with httpx.Client(base_url=base, timeout=15) as api:
+                if packaged:
+                    for _ in range(600):
+                        connections = psutil.Process(server.pid).net_connections(kind="inet")
+                        listening = next(
+                            (item for item in connections if item.status == psutil.CONN_LISTEN),
+                            None,
+                        )
+                        if listening:
+                            base = f"http://127.0.0.1:{listening.laddr.port}"
+                            break
+                        if server.poll() is not None:
+                            raise RuntimeError("Packaged desktop exited before starting its API")
+                        time.sleep(0.1)
+                    else:
+                        raise RuntimeError("Packaged API did not start")
+                with httpx.Client(
+                    base_url=base,
+                    timeout=15,
+                    headers={"X-API-Key": synthetic_key} if require_api_key else {},
+                ) as api:
                     for _ in range(600):
                         try:
                             if api.get("/health").is_success:
@@ -79,8 +116,50 @@ def run() -> None:
                             )
                             page_errors = []
                             page.on("pageerror", lambda error: page_errors.append(str(error)))
+                            probes = []
+                            protected_reads = []
+                            page.on(
+                                "request",
+                                lambda request: (
+                                    probes.append(request.url)
+                                    if "/auth/session" in request.url
+                                    else None
+                                ),
+                            )
+                            page.on(
+                                "request",
+                                lambda request: (
+                                    protected_reads.append(request.url)
+                                    if "/profiles?" in request.url
+                                    else None
+                                ),
+                            )
+                            if blocked_storage:
+                                page.add_init_script(
+                                    "Object.defineProperty(window, 'localStorage', {get() {throw new Error('Storage blocked')}})"
+                                )
                             page.goto(base, wait_until="networkidle")
                             expect(page).to_have_title("CPM Custom")
+                            if require_api_key:
+                                expect(
+                                    page.get_by_role("heading", name="API key required")
+                                ).to_be_visible()
+                                page.wait_for_timeout(1500)
+                                assert len(probes) == 1 and not protected_reads, (
+                                    "Unauthenticated startup mounted the protected app or looped"
+                                )
+                                field = page.get_by_label("API key for this browser", exact=True)
+                                field.fill("wrong-synthetic-key")
+                                page.get_by_role("button", name="Continue", exact=True).click()
+                                expect(page.locator("form").get_by_role("alert")).to_contain_text(
+                                    "The API key is not valid"
+                                )
+                                assert not protected_reads
+                                field.fill(synthetic_key)
+                                page.get_by_role("button", name="Continue", exact=True).click()
+                                expect(
+                                    page.get_by_role("link", name="Settings", exact=True)
+                                ).to_be_visible()
                             search = page.get_by_role("textbox", name="Search profiles")
                             search.fill("Keep")
                             page.get_by_role("button", name="Next page", exact=True).click()
@@ -96,6 +175,21 @@ def run() -> None:
                             expect(search).to_have_value("Keep")
                             expect(selected).to_be_checked()
                             assert page.url == original_url
+
+                            def denied_group(route):
+                                route.fulfill(
+                                    status=403, json={"detail": "Synthetic resource denial"}
+                                )
+
+                            page.route("**/api/v1/groups", denied_group)
+                            page.evaluate("window.dispatchEvent(new Event('focus'))")
+                            page.wait_for_timeout(1000)
+                            expect(search).to_have_value("Keep")
+                            expect(selected).to_be_checked()
+                            assert page.url == original_url, (
+                                "A resource-level denial remounted the page"
+                            )
+                            page.unroute("**/api/v1/groups", denied_group)
 
                             page.get_by_role(
                                 "button", name="Actions for Keep 26", exact=True
@@ -157,7 +251,7 @@ def run() -> None:
                             expect(search).to_have_value("Keep")
                             assert page.url == original_url
                             (ROOT / "build").mkdir(exist_ok=True)
-                            page.screenshot(path=str(ROOT / "build/custom-ui.png"))
+                            page.screenshot(path=str(ROOT / f"build/{report_name}.png"))
                             page.get_by_role("link", name="Settings", exact=True).click()
                             expect(
                                 page.get_by_role(
@@ -167,12 +261,41 @@ def run() -> None:
                                 "href",
                                 "https://github.com/southflybird/camoufox-profile-manager/releases",
                             )
+                            if require_api_key:
+                                page.route(
+                                    "**/api/v1/auth/session",
+                                    lambda route: route.fulfill(
+                                        json={
+                                            "user_auth_enabled": False,
+                                            "authenticated": False,
+                                            "username": None,
+                                        }
+                                    ),
+                                )
+                                page.route(
+                                    "**/api/v1/profiles?*",
+                                    lambda route: route.fulfill(
+                                        status=401, json={"detail": "Synthetic revoked key"}
+                                    ),
+                                )
+                                page.goto(base)
+                                expect(
+                                    page.get_by_role("heading", name="API key required")
+                                ).to_be_visible()
+                                count = len(protected_reads)
+                                page.wait_for_timeout(1500)
+                                assert len(protected_reads) == count, (
+                                    "Access loss restarted protected polling"
+                                )
                             assert not page_errors, page_errors
                         finally:
                             browser.close()
                 report = {
                     "passed": True,
                     "scope": "bundled UI with a disposable database",
+                    "api_key_required": require_api_key,
+                    "blocked_storage": blocked_storage,
+                    "packaged": packaged is not None,
                     "checks": [
                         "scheduled refresh",
                         "search/page/selection retention",
@@ -183,9 +306,10 @@ def run() -> None:
                         "hidden-page pause",
                         "custom release link",
                         "no browser script errors",
+                        "resource denial preserves a valid session and local state",
                     ],
                 }
-                (ROOT / "build/custom-ui.json").write_text(
+                (ROOT / f"build/{report_name}.json").write_text(
                     json.dumps(report, indent=2) + "\n", encoding="utf-8"
                 )
                 print(json.dumps(report))
@@ -199,4 +323,9 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--api-key", action="store_true")
+    parser.add_argument("--blocked-storage", action="store_true")
+    parser.add_argument("--packaged", type=Path)
+    args = parser.parse_args()
+    run(args.api_key, args.blocked_storage, args.packaged)

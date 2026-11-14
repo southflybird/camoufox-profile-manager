@@ -157,9 +157,11 @@ export function isStaleWrite(error: unknown): boolean {
 }
 
 const API_KEY_STORAGE = 'camoufox-pm.api-key'
+let apiKeyOverride: string | undefined
 
 /** The key CPM_API_KEY expects, if the user has stored one. */
 export function getApiKey(): string {
+  if (apiKeyOverride !== undefined) return apiKeyOverride
   if (typeof window === 'undefined') return ''
   try {
     return window.localStorage.getItem(API_KEY_STORAGE) ?? ''
@@ -170,9 +172,14 @@ export function getApiKey(): string {
 }
 
 export function setApiKey(key: string): void {
+  apiKeyOverride = key
   if (typeof window === 'undefined') return
-  if (key) window.localStorage.setItem(API_KEY_STORAGE, key)
-  else window.localStorage.removeItem(API_KEY_STORAGE)
+  try {
+    if (key) window.localStorage.setItem(API_KEY_STORAGE, key)
+    else window.localStorage.removeItem(API_KEY_STORAGE)
+  } catch {
+    // Restricted WebViews can still authenticate for the lifetime of this page.
+  }
 }
 
 export function authHeaders(): Record<string, string> {
@@ -759,8 +766,8 @@ export interface AuthSession {
 // The session lives in an HttpOnly cookie the browser sends by itself on this
 // same-origin app; nothing here stores or reads a token.
 export const authAPI = {
-  session(): Promise<AuthSession> {
-    return request<AuthSession>(`${API_PREFIX}/auth/session`)
+  session(apiKey?: string): Promise<AuthSession> {
+    return request<AuthSession>(`${API_PREFIX}/auth/session`, apiKey === undefined ? undefined : { headers: { 'X-API-Key': apiKey } })
   },
 
   login(username: string, password: string): Promise<AuthSession> {

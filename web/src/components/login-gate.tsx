@@ -3,9 +3,9 @@
 import { LanguageSelector } from '@/components/language-selector'
 import { useI18n } from '@/components/i18n-provider'
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 
-import { authAPI, type AuthSession } from '@/lib/api'
+import { authAPI, setApiKey, type AuthSession } from '@/lib/api'
 
 interface AuthState {
   /** The logged-in user, or null when login is off or not yet established. */
@@ -30,26 +30,33 @@ export function useAuth(): AuthState {
 export function LoginGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [probeFailed, setProbeFailed] = useState(false)
+  const pendingProbe = useRef<Promise<void> | null>(null)
 
-  const refresh = useCallback(async () => {
-    try {
-      setSession(await authAPI.session())
-      setProbeFailed(false)
-    } catch {
-      setSession(null)
-      setProbeFailed(true)
-    }
+  const refresh = useCallback(() => {
+    if (pendingProbe.current) return pendingProbe.current
+    const probe = (async () => {
+      try {
+        setSession(await authAPI.session())
+        setProbeFailed(false)
+      } catch {
+        setSession(null)
+        setProbeFailed(true)
+      } finally {
+        pendingProbe.current = null
+      }
+    })()
+    pendingProbe.current = probe
+    return probe
   }, [])
 
   useEffect(() => {
-    // refresh() only sets state after awaiting the session probe; the rule
-    // cannot see through the async boundary and assumes the worst.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh()
   }, [refresh])
 
   useEffect(() => {
-    const denied = () => { setSession(null); void refresh() }
+    // A resource-level 403 does not invalidate a valid session. Recheck it
+    // without unmounting the app and restarting the requests that were denied.
+    const denied = () => { void refresh() }
     window.addEventListener('camoufox-access-denied', denied)
     return () => window.removeEventListener('camoufox-access-denied', denied)
   }, [refresh])
@@ -65,8 +72,10 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  if (session && session.user_auth_enabled && !session.authenticated) {
-    return <LoginScreen onLoggedIn={setSession} />
+  if (session && !session.authenticated) {
+    return session.user_auth_enabled
+      ? <LoginScreen onLoggedIn={setSession} />
+      : <ApiKeyScreen onLoggedIn={setSession} />
   }
 
   if (probeFailed) return <SessionUnavailable onRetry={refresh} />
@@ -76,6 +85,48 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
+}
+
+function ApiKeyScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => void }) {
+  const { t } = useI18n()
+  const [key, setKey] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const value = key.trim()
+      const session = await authAPI.session(value)
+      if (!session.authenticated) {
+        setError(t('The API key is not valid. Check CPM_API_KEY and try again.'))
+        setKey('')
+        return
+      }
+      setApiKey(value)
+      onLoggedIn(session)
+    } catch {
+      setError(t('Unable to verify access'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <div className="flex h-screen items-center justify-center">
+    <form onSubmit={submit} className="panel flex w-[360px] flex-col gap-3 p-5">
+      <LanguageSelector />
+      <h1 className="text-[14px] font-semibold">{t('API key required')}</h1>
+      <p className="text-ink-dim">{t('This instance requires the API key configured in CPM_API_KEY before you can open the app.')}</p>
+      <label className="flex flex-col gap-1">
+        <span className="text-ink-dim">{t('API key for this browser')}</span>
+        <input type="password" className="field font-mono" value={key} onChange={event => setKey(event.target.value)} autoComplete="off" autoFocus />
+      </label>
+      {error && <p className="text-danger" role="alert">{error}</p>}
+      <button type="submit" className="btn btn-primary" disabled={busy || !key.trim()}>{busy ? t('Signing in…') : t('Continue')}</button>
+    </form>
+  </div>
 }
 
 function LoginScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => void }) {

@@ -1,7 +1,7 @@
 # CPM Custom 开发、升级与恢复
 
 维护者：southflybird。上游：polyackiy/camoufox-profile-manager。
-当前基础：官方 v0.7.0；定制版本：0.7.0+southflybird.1。
+当前基础：官方 v0.7.0；定制版本：0.7.0+southflybird.2。
 
 ## 分支与提交
 
@@ -64,10 +64,10 @@ Python/npm/两份锁文件的版本须一致，例如 `0.7.0+southflybird.2`，�
 GitHub prerelease 标志控制预览发布；正式用户不会看到预览更新。预览测试后可以发布同一构建；若修改内容则增加 r 修订号。
 
 ```powershell
-python -m uv run --no-sync python scripts/verify_custom_release.py --tag custom-v0.7.0-r1
+python -m uv run --no-sync python scripts/verify_custom_release.py --tag custom-v0.7.0-r2
 # 完成下面的检查后，才创建并推送标签。
-git tag -a custom-v0.7.0-r1 -m 'CPM Custom 0.7.0 r1'
-git push origin custom-v0.7.0-r1
+git tag -a custom-v0.7.0-r2 -m 'CPM Custom 0.7.0 r2'
+git push origin custom-v0.7.0-r2
 ```
 
 仅 `custom-v*` 标签触发定制发布流水线。流水线构建 Windows x64 安装包、运行冻结程序和安装生命周期检查、附加 SHA-256，创建 **draft prerelease**。
@@ -128,3 +128,11 @@ python -m uv run --no-sync camoufox-pm --desktop update-recovery restore --check
 恢复会替换恢复点之后的数据状态，应先保存当前副本。不能仅切换旧 Git 标签或覆盖旧 EXE 后继续使用已升级的数据库。
 
 首次从官方版迁移时，先关闭两套程序并完整备份实际官方数据目录和密钥，在副本上验证迁移；正式数据迁移单独进行。
+
+## API 密钥启动修复（r2）
+
+如果环境中设置了 `CPM_API_KEY`，而定制数据目录尚无账户，首次打开会显示密钥验证页。输入既有密钥后进入完整界面；不会关闭密钥保护或复制官方账户数据。未设置密钥且没有账户时仍直接进入应用。
+
+r1 在此场景错误地进入主页并循环触发 401 和登录探测，导致页面闪烁。r2 同时修复资源级 403 导致的反复挂载，增加存储受限时的内存凭据回退。
+
+回归验证：`python -m uv run --no-sync python scripts/smoke_custom_ui.py --api-key --blocked-storage`；验证冻结程序时追加 `--packaged dist/camoufox-pm/camoufox-pm.exe`。

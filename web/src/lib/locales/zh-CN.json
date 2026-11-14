@@ -1200,5 +1200,8 @@
   "CPM Custom uses manual updates from its own release page. Keep a complete data backup before updating.": "CPM Custom 使用定制发布页中的安装包手动更新。更新前请完整备份数据。",
   "Custom release downloads": "下载定制版本",
   "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "降级需要配套的旧程序和完整数据备份。仅有配置归档无法完整回退。",
-  "No custom release has been published yet.": "尚未发布定制版本。"
+  "No custom release has been published yet.": "尚未发布定制版本。",
+  "API key required": "需要 API 密钥",
+  "This instance requires the API key configured in CPM_API_KEY before you can open the app.": "此实例已启用 API 密钥保护，请输入 CPM_API_KEY 中配置的密钥以打开应用。",
+  "The API key is not valid. Check CPM_API_KEY and try again.": "API 密钥无效，请检查 CPM_API_KEY 后重试。"
 }

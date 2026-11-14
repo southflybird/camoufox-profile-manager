@@ -86,6 +86,9 @@ jobs:
       - name: Custom auto-refresh UI with a disposable API
         working-directory: .
         run: uv run python scripts/smoke_custom_ui.py
+      - name: API-key startup and restricted WebView storage
+        working-directory: .
+        run: uv run python scripts/smoke_custom_ui.py --api-key --blocked-storage
       - name: Browser download authentication UI contracts
         working-directory: .
         run: uv run python web/tests/browser_download_auth_ui.py

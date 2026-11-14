@@ -1335,5 +1335,8 @@
   "CPM Custom uses manual updates from its own release page. Keep a complete data backup before updating.": "CPM Custom обновляется вручную со своей страницы выпусков. Перед обновлением сохраните полную резервную копию данных.",
   "Custom release downloads": "Скачать пользовательскую сборку",
   "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "Для отката нужны соответствующая версия приложения и полная копия данных. Архивов профилей недостаточно.",
-  "No custom release has been published yet.": "Пользовательские выпуски пока не опубликованы."
+  "No custom release has been published yet.": "Пользовательские выпуски пока не опубликованы.",
+  "API key required": "Требуется API-ключ",
+  "This instance requires the API key configured in CPM_API_KEY before you can open the app.": "Этот экземпляр защищён API-ключом. Введите ключ из CPM_API_KEY, чтобы открыть приложение.",
+  "The API key is not valid. Check CPM_API_KEY and try again.": "Неверный API-ключ. Проверьте CPM_API_KEY и повторите попытку."
 }

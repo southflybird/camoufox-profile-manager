@@ -1,6 +1,6 @@
 # CPM Custom — southflybird
 
-基于官方 **v0.7.0** 的 Windows 定制版本：**0.7.0+southflybird.1**。
+基于官方 **v0.7.0** 的 Windows 定制版本：**0.7.0+southflybird.2**。
 
 - 配置列表每 10 秒自动刷新，恢复窗口焦点立即刷新，保留筛选、分页、勾选和编辑状态。
 - 使用独立的 **CPM Custom** 数据目录、Windows 安装目录及更新渠道。
