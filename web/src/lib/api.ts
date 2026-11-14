@@ -187,8 +187,8 @@ export function authHeaders(): Record<string, string> {
   return key ? { 'X-API-Key': key } : {}
 }
 
-export function notifyAccessDenied(status: number): void {
-  if ((status === 401 || status === 403) && typeof window !== 'undefined') window.dispatchEvent(new Event('camoufox-access-denied'))
+export function notifyAccessDenied(status: number, path?: string): void {
+  if ((status === 401 || status === 403) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('camoufox-access-denied', { detail: { path } }))
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -203,7 +203,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!response.ok) {
-    if (!path.includes('/auth/')) notifyAccessDenied(response.status)
+    if (!path.includes('/auth/')) notifyAccessDenied(response.status, path)
     let detail = response.statusText
     let code: string | undefined
     try {
@@ -451,7 +451,7 @@ export const profilesAPI = {
     const response = await fetch(`${API_BASE_URL}${API_PREFIX}/profiles/export/excel`, {
       headers: authHeaders(),
     })
-    if (!response.ok) { notifyAccessDenied(response.status); throw new ApiRequestError(response.statusText, response.status) }
+    if (!response.ok) { notifyAccessDenied(response.status, `${API_PREFIX}/profiles/export/excel`); throw new ApiRequestError(response.statusText, response.status) }
     return response.blob()
   },
 
@@ -460,7 +460,7 @@ export const profilesAPI = {
       headers: authHeaders(),
     })
     if (!response.ok) {
-      notifyAccessDenied(response.status)
+      notifyAccessDenied(response.status, `${API_PREFIX}/profiles/${id}/export`)
       const body = await response.json().catch(() => null)
       throw new Error(body?.detail ?? response.statusText)
     }
@@ -477,7 +477,7 @@ export const profilesAPI = {
       body,
     })
     if (!response.ok) {
-      notifyAccessDenied(response.status)
+      notifyAccessDenied(response.status, `${API_PREFIX}/profiles/import`)
       const detail = await response.json().catch(() => null)
       throw new Error(detail?.detail ?? response.statusText)
     }
