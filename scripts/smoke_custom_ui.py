@@ -47,7 +47,7 @@ def run() -> None:
             )
             try:
                 with httpx.Client(base_url=base, timeout=15) as api:
-                    for _ in range(100):
+                    for _ in range(600):
                         try:
                             if api.get("/health").is_success:
                                 break
@@ -69,7 +69,9 @@ def run() -> None:
                     profiles = [create(f"Keep {index:02}") for index in range(28)]
                     with sync_playwright() as playwright:
                         browser = playwright.chromium.launch(
-                            channel=os.environ.get("CPM_TEST_BROWSER", "msedge"), headless=True
+                            channel=os.environ.get("CPM_TEST_BROWSER")
+                            or ("msedge" if sys.platform == "win32" else None),
+                            headless=True,
                         )
                         try:
                             page = browser.new_page(
