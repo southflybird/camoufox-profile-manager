@@ -6,6 +6,7 @@ on:
   # Every pull request, not only those targeting main: a PR stacked on another
   # branch got no checks at all, which is when review needs them most.
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

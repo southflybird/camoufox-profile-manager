@@ -44,7 +44,15 @@ def package_desktop() -> list[Path]:
         create_dmg(stage, output)
         return [output]
     if sys.platform == "win32":
-        makensis = shutil.which("makensis") or str(Path("C:/Program Files (x86)/NSIS/makensis.exe"))
+        makensis = os.environ.get("CPM_NSIS") or shutil.which("makensis")
+        if not makensis:
+            candidates = [
+                Path("C:/Program Files (x86)/NSIS/makensis.exe"),
+                Path(os.environ.get("LOCALAPPDATA", "")) / "CPMCustomTools/nsis-3.13/makensis.exe",
+            ]
+            makensis = next((str(path) for path in candidates if path.is_file()), None)
+        if not makensis:
+            raise SystemExit("NSIS compiler not found. Set CPM_NSIS to makensis.exe or add it to PATH.")
         bootstrapper = ROOT / "build" / "MicrosoftEdgeWebview2Setup.exe"
         bootstrapper.parent.mkdir(parents=True, exist_ok=True)
         # Official Evergreen endpoint; verify its publisher before redistribution.

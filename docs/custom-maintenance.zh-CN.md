@@ -74,7 +74,7 @@ git push origin custom-v0.7.0-r1
 草稿不自动公开。安装与恢复验证完成后，在 GitHub 发布草稿。不要将镜像上游标签作为自己的新发布推送。
 上游其他平台构建脚本仍保留供参考，本轮交付只承诺 Windows x64。
 
-本地打包需要 NSIS（makensis 在 PATH 或位于默认安装目录）：
+本地打包需要 NSIS（makensis 在 PATH、位于默认安装目录，或在 `%LOCALAPPDATA%\CPMCustomTools\nsis-3.13`）。也可通过 `CPM_NSIS` 指定编译器绝对路径：
 
 ```powershell
 python -m uv run --no-sync python scripts/build_desktop.py --package
@@ -88,9 +88,11 @@ python -m uv run --no-sync python scripts/build_desktop.py --package
 ```powershell
 python -m uv run --no-sync ruff check src tests scripts/verify_custom_release.py
 python -m uv run --no-sync ruff format --check src tests
-python -m uv run --no-sync mypy src/camoufox_pm
+python -m uv run --no-sync mypy --platform linux src/camoufox_pm
 # 首次 import 时也使用独立目录，不接触工作区或正式数据库。
 $env:CPM_DB_PATH = Join-Path $env:TEMP 'cpm-custom-tests-bootstrap\profiles.db'
+# 在独立 PowerShell 测试进程中移除继承的 API 密钥，不修改系统环境设置。
+Remove-Item Env:\CPM_API_KEY -ErrorAction SilentlyContinue
 python -m uv run --no-sync pytest -m 'not browser' -W error::ResourceWarning -W error::pytest.PytestUnraisableExceptionWarning
 Remove-Item Env:\CPM_DB_PATH
 Push-Location web
@@ -102,6 +104,8 @@ python -m uv run --no-sync python scripts/build_webui.py
 
 另需在隔离配置中人工检查：首次启动、安装浏览器、创建与启动配置、外部关闭浏览器、重启、配置归档恢复、覆盖安装后数据保留。
 新刷新行为由 `web/tests/auto-refresh.test.ts` 与真实浏览器烟雾测试覆盖。
+使用本机已安装的 Edge 验证 UI：`python -m uv run --no-sync python scripts/smoke_custom_ui.py`；可通过 `CPM_TEST_BROWSER=chrome` 改用 Chrome。
+类型检查与 CI 一样按 Linux 平台分析跨平台代码。上游部分完整测试依赖 POSIX 或符号链接权限，Windows 本机的完整套件不能替代 Linux CI。
 
 ## 备份与回退
 
