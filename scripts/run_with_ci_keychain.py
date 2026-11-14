@@ -43,7 +43,7 @@ def main():
             security("unlock-keychain", "-p", password, keychain)
             security("list-keychains", "-d", "user", "-s", keychain)
             security("default-keychain", "-d", "user", "-s", keychain)
-            environment = dict(os.environ, CPM_CI_ISOLATED_KEYCHAIN="1")
+            environment = dict(os.environ, CPM_CUSTOM_CI_ISOLATED_KEYCHAIN="1")
             subprocess.run(sys.argv[2:], env=environment, check=True, timeout=2100)
         finally:
             # Restore both settings even if one cleanup operation fails.

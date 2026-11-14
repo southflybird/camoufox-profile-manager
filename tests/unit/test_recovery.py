@@ -296,13 +296,13 @@ async def test_backup_refuses_unreadable_credentials_and_keeps_previous_checkpoi
 
     from camoufox_pm.config import get_settings
 
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     try:
         profile, _ = await seeded(profile_manager)
         backups = ProfileBackupManager(profile_manager)
         good = (await backups.create_backups())["backups"][0]
-        monkeypatch.delenv("CPM_SECRET_KEY")
+        monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
         get_settings.cache_clear()
         result = await backups.create_backups(reason="before_update")
         assert result["backups"] == []

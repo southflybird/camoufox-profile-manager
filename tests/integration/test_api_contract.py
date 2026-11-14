@@ -64,7 +64,7 @@ async def test_late_validation_errors_use_the_same_shape(client):
 async def test_auth_failures_use_the_same_shape(client, monkeypatch):
     from camoufox_pm.config import get_settings
 
-    monkeypatch.setenv("CPM_API_KEY", "top-secret")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "top-secret")
     get_settings.cache_clear()
     try:
         response = await client.get("/api/v1/profiles")

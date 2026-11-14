@@ -311,7 +311,7 @@ def test_macos_keychain_settings_restored_after_child_failure(monkeypatch):
         return ""
 
     def fail(*args, **kwargs):
-        assert kwargs["env"]["CPM_CI_ISOLATED_KEYCHAIN"] == "1"
+        assert kwargs["env"]["CPM_CUSTOM_CI_ISOLATED_KEYCHAIN"] == "1"
         raise RuntimeError("synthetic child failure")
 
     monkeypatch.setattr(wrapper.sys, "platform", "darwin")

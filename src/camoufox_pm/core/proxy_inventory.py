@@ -44,7 +44,7 @@ def _stored_password(password: str | None) -> str | None:
     if not get_settings().secret_key:
         raise ProxyCredentialsUnavailable(
             "An encryption key is required to save proxy passwords. "
-            "Restore secret.key or configure CPM_SECRET_KEY."
+            "Restore secret.key or configure CPM_CUSTOM_SECRET_KEY."
         )
     try:
         return encrypt(password)
@@ -62,7 +62,7 @@ def _clear_password(password: str | None) -> str | None:
     if password.startswith("enc:") and value == password:
         raise ProxyCredentialsUnavailable(
             "Proxy credentials could not be decrypted. Restore the original "
-            "secret.key or CPM_SECRET_KEY before checking or assigning this proxy."
+            "secret.key or CPM_CUSTOM_SECRET_KEY before checking or assigning this proxy."
         )
     return value
 

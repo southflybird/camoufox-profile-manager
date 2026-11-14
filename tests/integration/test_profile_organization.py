@@ -140,7 +140,7 @@ async def test_invalid_saved_views_never_write_metadata(client, body):
 
 
 async def test_saved_view_and_bulk_tag_routes_require_existing_auth(client, monkeypatch):
-    monkeypatch.setenv("CPM_API_KEY", "organization-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "organization-key")
     get_settings.cache_clear()
     try:
         assert (await client.get("/api/v1/saved-filters")).status_code == 401

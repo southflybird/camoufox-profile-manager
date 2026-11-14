@@ -140,7 +140,7 @@ local digest override is accepted by this pipeline.
 
 ## Local deployment policy
 
-`CPM_UPDATE_POLICY` points to a provisioned local JSON file, not an HTTP input.
+`CPM_CUSTOM_UPDATE_POLICY` points to a provisioned local JSON file, not an HTTP input.
 The runtime accepts exactly these top-level fields:
 
 | Field | Meaning |

@@ -26,12 +26,12 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 RUN uv sync --no-dev --frozen
 
-# The static export, where the package looks for it when no CPM_WEBUI_DIR is set.
+# The static export, where the package looks for it when no CPM_CUSTOM_WEBUI_DIR is set.
 COPY --from=webui /web/out ./src/camoufox_pm/webui
 
-ENV CPM_HOST=0.0.0.0 \
-    CPM_PORT=8000 \
-    CPM_DB_PATH=/data/profiles.db
+ENV CPM_CUSTOM_HOST=0.0.0.0 \
+    CPM_CUSTOM_PORT=8000 \
+    CPM_CUSTOM_DB_PATH=/data/profiles.db
 
 VOLUME ["/data"]
 EXPOSE 8000

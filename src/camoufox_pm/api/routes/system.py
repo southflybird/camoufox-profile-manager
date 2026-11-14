@@ -37,7 +37,7 @@ def _cleanup_manager() -> ProfileCleanupManager:
     """Point the cleanup at the storage this instance actually uses.
 
     It used to be constructed with its defaults, which are ``./data`` and
-    ``./data/profiles.db`` whatever ``CPM_DB_PATH`` says. With the database
+    ``./data/profiles.db`` whatever ``CPM_CUSTOM_DB_PATH`` says. With the database
     configured under any other name, the cleanup opened an empty one beside it,
     concluded that every profile directory on disk was an orphan, and deleted
     them all.

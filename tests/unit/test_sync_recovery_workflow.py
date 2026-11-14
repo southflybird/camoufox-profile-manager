@@ -258,12 +258,12 @@ def test_restore_key_uses_destination_and_rejects_conflicting_environment(tmp_pa
     from camoufox_pm.config import get_settings
     from camoufox_pm.sync.recovery_workflow import _target_key
 
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     try:
         _target_key(tmp_path / "profiles.db")
         key = (tmp_path / "secret.key").read_text()
         assert get_settings().secret_key == key
-        monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+        monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
         with pytest.raises(RecoveryWorkflowError):
             _target_key(tmp_path / "profiles.db")
         assert (tmp_path / "secret.key").read_text() == key
@@ -276,7 +276,7 @@ def test_existing_encrypted_database_without_key_is_not_rekeyed(tmp_path, monkey
 
     from camoufox_pm.sync.recovery_workflow import _target_key
 
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     path = tmp_path / "profiles.db"
     with closing(sqlite3.connect(path)) as db, db:
         db.execute("CREATE TABLE profiles (proxy_config TEXT)")
@@ -309,7 +309,7 @@ def test_export_does_not_generate_destination_key(tmp_path, monkeypatch):
     from camoufox_pm.config import get_settings
     from camoufox_pm.sync.recovery_workflow import _target_key
 
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     try:
         _target_key(tmp_path / "profiles.db", create=False)
         assert not (tmp_path / "secret.key").exists()

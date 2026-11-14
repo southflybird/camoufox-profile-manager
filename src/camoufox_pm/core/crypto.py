@@ -1,6 +1,6 @@
 """Symmetric encryption for secrets at rest (proxy credentials).
 
-Uses Fernet keyed by ``CPM_SECRET_KEY``. When no key is configured the functions
+Uses Fernet keyed by ``CPM_CUSTOM_SECRET_KEY``. When no key is configured the functions
 are the identity transform, so local-only setups keep working. Decryption also
 tolerates plaintext values written before a key was configured, easing migration.
 """
@@ -36,15 +36,15 @@ def decrypt(value: str) -> str:
     fernet = _fernet()
     if fernet is None:
         logger.warning(
-            "Found an encrypted value but CPM_SECRET_KEY is not set; returning it "
-            "undecrypted. Set CPM_SECRET_KEY to the key used to encrypt it."
+            "Found an encrypted value but CPM_CUSTOM_SECRET_KEY is not set; returning it "
+            "undecrypted. Set CPM_CUSTOM_SECRET_KEY to the key used to encrypt it."
         )
         return value
     try:
         return fernet.decrypt(value[len(_PREFIX) :].encode()).decode()
     except InvalidToken:
         logger.warning(
-            "Failed to decrypt a stored secret (wrong CPM_SECRET_KEY or corrupted "
+            "Failed to decrypt a stored secret (wrong CPM_CUSTOM_SECRET_KEY or corrupted "
             "data); returning the raw value."
         )
         return value

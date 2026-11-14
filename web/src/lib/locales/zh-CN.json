@@ -162,8 +162,8 @@
   "Security": "安全",
   "Configured with environment variables; restart to apply changes.": "通过环境变量配置，更改后需重启生效。",
   "Proxy password encryption": "代理密码加密",
-  "Passwords are encrypted at rest with CPM_SECRET_KEY.": "使用 CPM_SECRET_KEY 加密存储密码。",
-  "Passwords are stored as plain text. Set CPM_SECRET_KEY to encrypt them.": "密码以明文存储。设置 CPM_SECRET_KEY 可启用加密。",
+  "Passwords are encrypted at rest with CPM_CUSTOM_SECRET_KEY.": "使用 CPM_CUSTOM_SECRET_KEY 加密存储密码。",
+  "Passwords are stored as plain text. Set CPM_CUSTOM_SECRET_KEY to encrypt them.": "密码以明文存储。设置 CPM_CUSTOM_SECRET_KEY 可启用加密。",
   "User accounts": "用户账户",
   "Login is required. Manage accounts with: camoufox-pm user": "需要登录。管理账户的命令：camoufox-pm user",
   "No user accounts. Create one with: camoufox-pm user add <name>": "尚无用户账户。创建命令：camoufox-pm user add <name>",
@@ -172,7 +172,7 @@
   "No API key is set. Machine clients have no way in; humans log in.": "未设置 API 密钥。自动化客户端无法访问，用户需登录。",
   "No API key is set. Anyone who can reach this port can use the API.": "未设置 API 密钥。任何能连接此端口的人都可使用 API。",
   "This browser's key": "当前浏览器的密钥",
-  "Paste CPM_API_KEY to keep using this UI": "粘贴 CPM_API_KEY 以继续使用界面",
+  "Paste CPM_CUSTOM_API_KEY to keep using this UI": "粘贴 CPM_CUSTOM_API_KEY 以继续使用界面",
   "API key for this browser": "当前浏览器的 API 密钥",
   "Save": "保存",
   "Bound to": "监听地址",
@@ -1202,6 +1202,6 @@
   "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "降级需要配套的旧程序和完整数据备份。仅有配置归档无法完整回退。",
   "No custom release has been published yet.": "尚未发布定制版本。",
   "API key required": "需要 API 密钥",
-  "This instance requires the API key configured in CPM_API_KEY before you can open the app.": "此实例已启用 API 密钥保护，请输入 CPM_API_KEY 中配置的密钥以打开应用。",
-  "The API key is not valid. Check CPM_API_KEY and try again.": "API 密钥无效，请检查 CPM_API_KEY 后重试。"
+  "This instance requires the API key configured in CPM_CUSTOM_API_KEY before you can open the app.": "此实例已启用 API 密钥保护，请输入 CPM_CUSTOM_API_KEY 中配置的密钥以打开应用。",
+  "The API key is not valid. Check CPM_CUSTOM_API_KEY and try again.": "API 密钥无效，请检查 CPM_CUSTOM_API_KEY 后重试。"
 }

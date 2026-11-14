@@ -35,7 +35,7 @@ compact proxy dialogs and keyboard focus, template counts, launch/stop batches,
 access grants, update preparation and explicit experimental-sync consent.
 Existing workflow suites continue to test the underlying operations separately.
 
-To retain screenshots, set `CPM_LOCALIZATION_SCREENSHOTS` to an output folder.
+To retain screenshots, set `CPM_CUSTOM_LOCALIZATION_SCREENSHOTS` to an output folder.
 Review first-run and compact-dialog images in both languages. Do not use real
 profile names, provider credentials, recovery secrets or active sessions.
 

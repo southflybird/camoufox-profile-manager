@@ -37,7 +37,7 @@ class DesktopUI(unittest.TestCase):
         cls.thread = Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(channel=os.environ.get("CPM_TEST_BROWSER"))
+        cls.browser = cls.playwright.chromium.launch(channel=os.environ.get("CPM_CUSTOM_TEST_BROWSER"))
         cls.origin = f"http://127.0.0.1:{cls.server.server_port}"
 
     @classmethod

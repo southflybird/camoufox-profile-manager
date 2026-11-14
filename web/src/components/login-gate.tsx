@@ -5,7 +5,7 @@ import { useI18n } from '@/components/i18n-provider'
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 
-import { authAPI, setApiKey, type AuthSession } from '@/lib/api'
+import { authAPI, getApiKey, setApiKey, type AuthSession } from '@/lib/api'
 
 interface AuthState {
   /** The logged-in user, or null when login is off or not yet established. */
@@ -36,7 +36,13 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
     if (pendingProbe.current) return pendingProbe.current
     const probe = (async () => {
       try {
-        setSession(await authAPI.session())
+        const probe = await authAPI.session('')
+        if (probe.user_auth_enabled) {
+          setApiKey('')
+          setSession(probe)
+        } else {
+          setSession(getApiKey() ? await authAPI.session() : probe)
+        }
         setProbeFailed(false)
       } catch {
         setSession(null)
@@ -61,10 +67,12 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
       void refresh()
     }
     window.addEventListener('camoufox-access-denied', denied)
-    return () => window.removeEventListener('camoufox-access-denied', denied)
+    window.addEventListener('camoufox-auth-changed', denied)
+    return () => { window.removeEventListener('camoufox-access-denied', denied); window.removeEventListener('camoufox-auth-changed', denied) }
   }, [refresh])
 
   const logout = useCallback(async () => {
+    setApiKey('')
     await authAPI.logout().catch(() => undefined)
     await refresh()
   }, [refresh])
@@ -104,7 +112,7 @@ function ApiKeyScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => vo
       const value = key.trim()
       const session = await authAPI.session(value)
       if (!session.authenticated) {
-        setError(t('The API key is not valid. Check CPM_API_KEY and try again.'))
+        setError(t('The API key is not valid. Check CPM_CUSTOM_API_KEY and try again.'))
         setKey('')
         return
       }
@@ -121,7 +129,7 @@ function ApiKeyScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => vo
     <form onSubmit={submit} className="panel flex w-[360px] flex-col gap-3 p-5">
       <LanguageSelector />
       <h1 className="text-[14px] font-semibold">{t('API key required')}</h1>
-      <p className="text-ink-dim">{t('This instance requires the API key configured in CPM_API_KEY before you can open the app.')}</p>
+      <p className="text-ink-dim">{t('This instance requires the API key configured in CPM_CUSTOM_API_KEY before you can open the app.')}</p>
       <label className="flex flex-col gap-1">
         <span className="text-ink-dim">{t('API key for this browser')}</span>
         <input type="password" className="field font-mono" value={key} onChange={event => setKey(event.target.value)} autoComplete="off" autoFocus />

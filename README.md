@@ -59,7 +59,7 @@ from it in January still looks like the same computer in June.
   browser version current automatically. Hardware never rotates on a timer, on
   purpose — [docs/scheduling.md](docs/scheduling.md).
 - **Proxies, checked before you trust them.** HTTP, HTTPS and SOCKS, with
-  passwords encrypted at rest when `CPM_SECRET_KEY` is set. *Check proxy* reports
+  passwords encrypted at rest when `CPM_CUSTOM_SECRET_KEY` is set. *Check proxy* reports
   where the proxy really comes out and whether the profile agrees with it — a
   timezone on a different clock from the exit country is the kind of
   contradiction a page can measure in two lines of JavaScript. The answer stays
@@ -71,7 +71,7 @@ from it in January still looks like the same computer in June.
   encryption. Assigned profiles retain independent copies. See the
   [proxy guide](docs/proxy-library.md) and [protocol acceptance matrix](docs/proxy-support.md).
 - **Multi-user, when you need it.** Nothing to configure for the usual case: the
-  app binds to loopback and is open. Set `CPM_API_KEY` for machine clients, or
+  app binds to loopback and is open. Set `CPM_CUSTOM_API_KEY` for machine clients, or
   create an account (`camoufox-pm user add`) and humans get a login screen —
   argon2id hashes, HttpOnly session cookies, a logout that really invalidates.
   Administrators assign operator/viewer roles, profile access and separate export
@@ -212,21 +212,21 @@ For Simplified Chinese UI and Linux input-method setup, see
 ## Configuration
 
 The desktop app creates its data folder and encryption key automatically.
-Advanced/source configuration uses environment variables (prefix `CPM_`); copy
+Advanced/source configuration uses environment variables (prefix `CPM_CUSTOM_`); copy
 `.env.example` to `.env` if needed. Explicit configuration also overrides desktop defaults.
 
 | Variable           | Default                 | Description                                     |
 | ------------------ | ----------------------- | ----------------------------------------------- |
-| `CPM_HOST`         | `127.0.0.1`             | Bind address                                    |
-| `CPM_PORT`         | `8000`                  | Port                                            |
-| `CPM_DB_PATH`      | `data/profiles.db` (CLI) | SQLite database path; desktop uses the OS data folder                            |
-| `CPM_LEASE_TTL`    | `120`                   | Seconds a profile's lease survives without a heartbeat — how long a crashed instance keeps its profiles locked. Minimum 60 |
-| `CPM_SECRET_KEY`   | *(empty)*               | Fernet key; encrypts proxy passwords at rest    |
-| `CPM_API_KEY`      | *(empty)*               | If set, required as the `X-API-Key` header (machine clients) |
-| `CPM_SESSION_TTL_HOURS` | `168`              | Login session lifetime, in hours                |
-| `CPM_SECURE_COOKIES` | `0`                   | Force the session cookie's `Secure` flag (set behind a TLS proxy) |
-| `CPM_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins                 |
-| `CPM_WEBUI_DIR`    | *(auto)*                | Override where the bundled web UI is served from |
+| `CPM_CUSTOM_HOST`         | `127.0.0.1`             | Bind address                                    |
+| `CPM_CUSTOM_PORT`         | `8000`                  | Port                                            |
+| `CPM_CUSTOM_DB_PATH`      | `data/profiles.db` (CLI) | SQLite database path; desktop uses the OS data folder                            |
+| `CPM_CUSTOM_LEASE_TTL`    | `120`                   | Seconds a profile's lease survives without a heartbeat — how long a crashed instance keeps its profiles locked. Minimum 60 |
+| `CPM_CUSTOM_SECRET_KEY`   | *(empty)*               | Fernet key; encrypts proxy passwords at rest    |
+| `CPM_CUSTOM_API_KEY`      | *(empty)*               | If set, required as the `X-API-Key` header (machine clients) |
+| `CPM_CUSTOM_SESSION_TTL_HOURS` | `168`              | Login session lifetime, in hours                |
+| `CPM_CUSTOM_SECURE_COOKIES` | `0`                   | Force the session cookie's `Secure` flag (set behind a TLS proxy) |
+| `CPM_CUSTOM_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins                 |
+| `CPM_CUSTOM_WEBUI_DIR`    | *(auto)*                | Override where the bundled web UI is served from |
 
 Generate an encryption key with:
 
@@ -249,7 +249,7 @@ correlation a profile exists to avoid.
 
 Each launch therefore takes a **lease** on the profile, and a second instance is
 refused (`409` over the API) until the browser closes. A lease is renewed while
-the browser runs and expires `CPM_LEASE_TTL` seconds after an instance stops
+the browser runs and expires `CPM_CUSTOM_LEASE_TTL` seconds after an instance stops
 renewing, so a machine that died does not lock its profiles forever.
 
 ```bash

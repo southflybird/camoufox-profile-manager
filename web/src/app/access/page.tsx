@@ -123,6 +123,7 @@ export default function AccessPage() {
     event.preventDefault()
     void mutate(async () => {
       await accessAPI.create(username, password, newUserRole)
+      if (!users.length) window.dispatchEvent(new Event('camoufox-auth-changed'))
       setUsername('')
       setPassword('')
     })

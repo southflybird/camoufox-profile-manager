@@ -53,7 +53,7 @@ def test_recovery_key_probe_closes_owned_database(tmp_path, monkeypatch, content
         assert_closed(opened[0])
         return publish(*args, **kwargs)
 
-    monkeypatch.setenv("CPM_SECRET_KEY", "")
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", "")
     monkeypatch.setattr(sqlite3, "connect", tracked_connect)
     monkeypatch.setattr(recovery, "_write", publish_after_close)
     try:

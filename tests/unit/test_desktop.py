@@ -1,5 +1,6 @@
 """Desktop startup owns its socket, its data lock, and server shutdown."""
 
+import contextlib
 import os
 import socket
 import sys
@@ -16,10 +17,10 @@ from camoufox_pm.config import get_settings
 
 @pytest.fixture
 def desktop_runtime(monkeypatch, tmp_path):
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "profiles.db"))
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
-    monkeypatch.delenv("CPM_PORT", raising=False)
-    monkeypatch.delenv("CPM_HOST", raising=False)
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "profiles.db"))
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_PORT", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_HOST", raising=False)
 
     class ClosingEvent:
         def __init__(self):
@@ -121,8 +122,8 @@ def test_dead_server_does_not_pass_readiness_for_occupied_port():
 
 
 def test_packaged_entrypoint_bootstraps_before_window(monkeypatch, tmp_path):
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "desktop-data" / "profiles.db"))
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "desktop-data" / "profiles.db"))
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     observed = []
     monkeypatch.setattr(desktop, "run_desktop", lambda: observed.append(get_settings().db_path))
     desktop.main()
@@ -144,6 +145,7 @@ def test_process_exit_is_only_for_frozen_macos(monkeypatch, platform, frozen):
 def test_frozen_macos_flushes_logs_before_process_exit(monkeypatch):
     import logging
 
+    monkeypatch.setattr(desktop, "_instance_lock", lambda directory: contextlib.nullcontext())
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     events = []
@@ -178,6 +180,7 @@ def test_incomplete_server_shutdown_is_not_reported_as_success(desktop_runtime, 
 
 
 def test_macos_native_quit_cleans_server_before_permitting_close(desktop_runtime, monkeypatch):
+    monkeypatch.setattr(desktop, "_instance_lock", lambda directory: contextlib.nullcontext())
     monkeypatch.setattr(sys, "platform", "darwin")
 
     def native_quit():
@@ -215,7 +218,7 @@ def test_packaged_recovery_dispatches_before_key_bootstrap(tmp_path, monkeypatch
     gate = MaintenanceGate(tmp_path / "update-control" / "maintenance.sqlite3")
     monkeypatch.setattr(maintenance, "configured_gate", lambda: gate)
     monkeypatch.setattr(config, "desktop_data_dir", lambda: tmp_path)
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "profiles.db"))
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "profiles.db"))
 
     def forbidden():
         raise AssertionError("Packaged recovery must not bootstrap keys or start the server")
@@ -248,7 +251,7 @@ def test_packaged_recovery_errors_log_and_exit_without_gui(tmp_path, monkeypatch
 
     from camoufox_pm import cli, config, desktop
 
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "profiles.db"))
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "profiles.db"))
     monkeypatch.setattr(sys, "argv", ["bundle", "--desktop", "update-recovery", "status"])
 
     def forbidden_gui(*args):
@@ -289,7 +292,7 @@ def test_packaged_recovery_refuses_control_symlink_without_chmod_or_gui(tmp_path
     target.mkdir(mode=0o755)
     original_mode = target.stat().st_mode
     (tmp_path / "update-control").symlink_to(target, target_is_directory=True)
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "profiles.db"))
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "profiles.db"))
     monkeypatch.setattr(sys, "argv", ["bundle", "--desktop", "update-recovery", "status"])
     monkeypatch.setattr(
         desktop, "_show_error", lambda *args: pytest.fail("No GUI on recovery failure")

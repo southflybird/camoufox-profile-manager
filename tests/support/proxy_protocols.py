@@ -157,7 +157,7 @@ class ProxyFixture:
     async def origin(self, reader, writer):
         headers = await reader.readuntil(b"\r\n\r\n")
         self.events.append(("origin", headers.split(b"\r\n", 1)[0]))
-        body = b"203.0.113.19" if b"/ip " in headers else b"CPM_PROXY_PROTOCOL_PROOF"
+        body = b"203.0.113.19" if b"/ip " in headers else b"CPM_CUSTOM_PROXY_PROTOCOL_PROOF"
         writer.write(
             b"HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: "
             + str(len(body)).encode()

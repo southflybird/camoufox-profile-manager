@@ -28,7 +28,7 @@ the Server field.
 Passwords are write-only: reopening an entry never retrieves its password.
 Leaving the password unchanged preserves it; explicitly clearing it removes it.
 Saving passwords requires the manager's encryption key. Desktop setup creates
-the key automatically; server installations configure `CPM_SECRET_KEY`.
+the key automatically; server installations configure `CPM_CUSTOM_SECRET_KEY`.
 Keep the original key when moving or restoring the database.
 
 ## Import a list

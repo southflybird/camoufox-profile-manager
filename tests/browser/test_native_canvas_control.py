@@ -56,7 +56,7 @@ async def capture_native_canvas(profile_directory, url, *, observe_processes=Non
 @pytest.mark.browser
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    sys.platform != "win32" or os.environ.get("CPM_NATIVE_CANVAS_CONTROL") != "1",
+    sys.platform != "win32" or os.environ.get("CPM_CUSTOM_NATIVE_CANVAS_CONTROL") != "1",
     reason="Opt-in fresh Windows runner diagnostic with packaged Playwright Firefox",
 )
 async def test_native_firefox_canvas_survives_a_relaunch(tmp_path, local_sites):
@@ -67,7 +67,7 @@ async def test_native_firefox_canvas_survives_a_relaunch(tmp_path, local_sites):
         record["phase"] = "initial" if number == 1 else "restart"
         records.append(record)
         hashes.append(record["pngHash"])
-        directory = os.environ.get("CPM_CANVAS_DIAGNOSTIC_DIR")
+        directory = os.environ.get("CPM_CUSTOM_CANVAS_DIAGNOSTIC_DIR")
         if directory:
             save_canvas_diagnostic(directory, number, value, record)
     assert hashes[0] == hashes[1], f"native Firefox canvas drifted: {records}"

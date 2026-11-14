@@ -41,9 +41,9 @@ def main() -> None:
         database = work / "installation data" / "profiles.db"
         environment = os.environ.copy()
         for key in tuple(environment):
-            if key.startswith("CPM_"):
+            if key.startswith("CPM_CUSTOM_"):
                 del environment[key]
-        environment["CPM_DB_PATH"] = str(database)
+        environment["CPM_CUSTOM_DB_PATH"] = str(database)
         environment["PYTHONIOENCODING"] = "utf-8"
         log = database.parent / "update-control" / "recovery-command.log"
         try:

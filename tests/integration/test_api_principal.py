@@ -15,7 +15,7 @@ from camoufox_pm.core import auth
 
 @pytest.fixture
 async def principal_client(storage, monkeypatch):
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     monkeypatch.setattr(dependencies, "_storage_manager", storage)
     app = FastAPI()
@@ -73,7 +73,7 @@ async def test_legacy_key_identity_has_no_secret_or_session_username(
 ):
     client, observed = principal_client
     token = await add_session(storage)
-    monkeypatch.setenv("CPM_API_KEY", "private-key-value")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "private-key-value")
     get_settings.cache_clear()
     response = await client.get(
         "/probe", headers={"X-API-Key": "private-key-value", "Cookie": f"cpm_session={token}"}

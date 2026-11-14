@@ -18,7 +18,7 @@ def local(monkeypatch, tmp_path):
 
 
 def test_default_runtime_fails_closed(local, monkeypatch):
-    monkeypatch.delenv("CPM_UPDATE_POLICY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_UPDATE_POLICY", raising=False)
     value = runtime.status()
     assert not value["automatic_install_available"]
     assert not value["can_download"]
@@ -132,8 +132,8 @@ def test_handoff_retains_original_environment_checkpoint_path(local, monkeypatch
     helper = tmp_path / "helper-copy"
     original.mkdir()
     helper.mkdir()
-    (original / ".env").write_text("CPM_DB_PATH=original/profiles.db\n")
-    (helper / ".env").write_text("CPM_DB_PATH=wrong/profiles.db\n")
+    (original / ".env").write_text("CPM_CUSTOM_DB_PATH=original/profiles.db\n")
+    (helper / ".env").write_text("CPM_CUSTOM_DB_PATH=wrong/profiles.db\n")
     monkeypatch.chdir(original)
     monkeypatch.setattr(runtime, "deployment", lambda: ({}, None))
     package = SimpleNamespace(

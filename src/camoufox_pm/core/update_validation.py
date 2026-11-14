@@ -116,7 +116,7 @@ async def _validate(record: dict):
 
 
 def validate_installed_process(receipt_path: str) -> None:
-    root_text = os.environ.get("CPM_UPDATE_STATE_DIR")
+    root_text = os.environ.get("CPM_CUSTOM_UPDATE_STATE_DIR")
     if not root_text:
         raise ValueError("Validation is available only to the offline helper")
     root = Path(root_text).absolute()

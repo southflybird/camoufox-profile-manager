@@ -16,7 +16,7 @@ from camoufox_pm.core.sync_guard import SyncBlocked
 
 @pytest.fixture
 async def setup(profile_manager, monkeypatch):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     inventory = ProxyInventory(profile_manager)
     proxies = [
@@ -82,7 +82,7 @@ async def test_whole_proxy_pool_preflight_before_first_write(setup, monkeypatch)
     for profile in profiles:
         assert (await sequence.inventory.storage.get_profile(profile.id)).proxy is None
     pairs[-1]["proxy"]["row_version"] = 1
-    monkeypatch.delenv("CPM_SECRET_KEY")
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
     get_settings.cache_clear()
     with pytest.raises(ProxyCredentialsUnavailable):
         await sequence.assign(pairs, authorize=AsyncMock())
@@ -249,7 +249,7 @@ async def test_key_loss_after_config_read_never_copies_plaintext(setup, monkeypa
     @asynccontextmanager
     async def lose_key(*args, **kwargs):
         async with original(*args, **kwargs) as profile:
-            monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+            monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
             get_settings.cache_clear()
             yield profile
 

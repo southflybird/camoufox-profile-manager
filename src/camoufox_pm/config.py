@@ -1,4 +1,4 @@
-"""Application settings loaded from environment variables (prefix ``CPM_``)."""
+"""Application settings loaded from environment variables (prefix ``CPM_CUSTOM_``)."""
 
 import os
 import sys
@@ -15,7 +15,7 @@ from camoufox_pm.distribution import APP_NAME, APP_SLUG
 class Settings(BaseSettings):
     """Runtime configuration. Values come from the environment or a ``.env`` file."""
 
-    model_config = SettingsConfigDict(env_prefix="CPM_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="CPM_CUSTOM_", env_file=".env", extra="ignore")
 
     host: str = "127.0.0.1"
     port: int = 8000
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
         # mutual exclusion outright, and silently.
         if value < 60:
             raise ValueError(
-                "CPM_LEASE_TTL must be at least 60 seconds (the heartbeat renews every 30s)"
+                "CPM_CUSTOM_LEASE_TTL must be at least 60 seconds (the heartbeat renews every 30s)"
             )
         return value
 
@@ -89,7 +89,7 @@ def bootstrap_desktop() -> None:
 
     configured = Settings()
     if "db_path" not in configured.model_fields_set:
-        os.environ["CPM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
+        os.environ["CPM_CUSTOM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
     get_settings.cache_clear()
     settings = get_settings()
     data_dir = Path(settings.db_path).expanduser().resolve().parent
@@ -107,5 +107,5 @@ def bootstrap_desktop() -> None:
         if key_path.exists():
             key = key_path.read_text().strip()
             Fernet(key.encode())  # Fail clearly instead of starting with a broken key.
-            os.environ["CPM_SECRET_KEY"] = key
+            os.environ["CPM_CUSTOM_SECRET_KEY"] = key
     get_settings.cache_clear()

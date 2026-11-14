@@ -143,7 +143,7 @@ jobs:
         run: |
           mkdir -p linux-package-reports
           for version in 22.04 24.04; do
-            docker run --rm --env CPM_DISPOSABLE_PACKAGE_TEST=1 \
+            docker run --rm --env CPM_CUSTOM_DISPOSABLE_PACKAGE_TEST=1 \
               --mount type=bind,src="$PWD/dist",dst=/packages,readonly \
               --mount type=bind,src="$PWD/scripts",dst=/tests,readonly \
               --mount type=bind,src="$PWD/linux-package-reports",dst=/reports \

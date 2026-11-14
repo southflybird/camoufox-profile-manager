@@ -188,7 +188,7 @@ class ProfileBackupManager:
             ):
                 raise ValueError(
                     "Stored proxy credentials could not be decrypted. Restore the original "
-                    "secret.key or CPM_SECRET_KEY before creating a recoverable backup."
+                    "secret.key or CPM_CUSTOM_SECRET_KEY before creating a recoverable backup."
                 )
             data = profile_data_path(self.manager, profile)
             if not data.is_dir():

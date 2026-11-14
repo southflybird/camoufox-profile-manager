@@ -245,7 +245,7 @@ class StageTwoUI(DesktopUI):
         )
 
     def capture(self, name):
-        if os.environ.get("CPM_UI_SCREENSHOTS") == "1":
+        if os.environ.get("CPM_CUSTOM_UI_SCREENSHOTS") == "1":
             target = Path(__file__).resolve().parents[2] / "docs" / "assets"
             target.mkdir(parents=True, exist_ok=True)
             self.page.screenshot(

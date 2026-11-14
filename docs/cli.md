@@ -11,8 +11,8 @@ usage: camoufox-pm [-h] [--host HOST] [--port PORT] [--no-browser] [--desktop]
 
 | Flag | Default | What it does |
 | ---- | ------- | ------------ |
-| `--host HOST` | `127.0.0.1` (or `CPM_HOST`) | Bind address. Anything other than loopback exposes the API to your network — set `CPM_API_KEY` first. |
-| `--port PORT` | `8000` (or `CPM_PORT`) | Port to serve on. |
+| `--host HOST` | `127.0.0.1` (or `CPM_CUSTOM_HOST`) | Bind address. Anything other than loopback exposes the API to your network — set `CPM_CUSTOM_API_KEY` first. |
+| `--port PORT` | `8000` (or `CPM_CUSTOM_PORT`) | Port to serve on. |
 | `--no-browser` | off | Do not open a browser tab on start. Use when running as a service. |
 | `--desktop` | off | Open a native window instead of a browser tab. Needs the `desktop` extra. |
 | `-h`, `--help` | | Show the built-in help. |
@@ -34,7 +34,7 @@ source equivalent is `python -m camoufox_pm.desktop`). This launcher chooses a f
 and bootstraps the OS data folder and encryption key. `camoufox-pm --desktop`
 also uses the desktop data folder but retains CLI host/port flag handling. Plain
 `camoufox-pm` and its administration commands retain their existing
-`data/profiles.db` default; set `CPM_DB_PATH` explicitly when managing a desktop
+`data/profiles.db` default; set `CPM_CUSTOM_DB_PATH` explicitly when managing a desktop
 database. [Data folder locations](getting-started.md#where-data-lives).
 
 ## `camoufox-pm user`
@@ -65,7 +65,7 @@ camoufox-pm user add alice                            # interactive
 openssl rand -base64 18 | camoufox-pm user add ci-bot --password-stdin
 ```
 
-The commands work against `CPM_DB_PATH` and take effect immediately, even while
+The commands work against `CPM_CUSTOM_DB_PATH` and take effect immediately, even while
 the server is running — the guard checks the database per request.
 
 ## `camoufox-pm leases` and `camoufox-pm unlock`
@@ -80,7 +80,7 @@ camoufox-pm leases                  # id, name, holder, expiry, live or expired
 camoufox-pm unlock <profile-id>     # force-release; prompts unless --yes
 ```
 
-`leases` lists every lease in `CPM_DB_PATH`, including expired ones that nobody
+`leases` lists every lease in `CPM_CUSTOM_DB_PATH`, including expired ones that nobody
 has taken over yet. A holder id is `<hostname>:<pid>:<uuid>`, so it names the
 machine and the process to look for.
 
@@ -126,15 +126,15 @@ uv run python -m camoufox_pm.main
 ```
 
 This starts the API with reload enabled and serves the UI if one has been built.
-It reads `CPM_HOST` and `CPM_PORT` and takes no flags — `camoufox-pm` is the
+It reads `CPM_CUSTOM_HOST` and `CPM_CUSTOM_PORT` and takes no flags — `camoufox-pm` is the
 supported entry point.
 
 ## Environment variables
 
-Every setting is also an environment variable with the `CPM_` prefix; they are
+Every setting is also an environment variable with the `CPM_CUSTOM_` prefix; they are
 listed in the [README](../README.md#configuration). A `.env` file in the working
 directory is read automatically.
 
 ```bash
-CPM_PORT=9000 CPM_API_KEY=secret camoufox-pm --no-browser
+CPM_CUSTOM_PORT=9000 CPM_CUSTOM_API_KEY=secret camoufox-pm --no-browser
 ```

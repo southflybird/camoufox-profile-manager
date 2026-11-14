@@ -3,7 +3,7 @@
 # Inputs are this CI job's trusted .deb, never third-party/user-uploaded packages.
 set -euo pipefail
 
-if [[ ${CPM_DISPOSABLE_PACKAGE_TEST:-} != 1 || ! -f /.dockerenv || $EUID != 0 ]]; then
+if [[ ${CPM_CUSTOM_DISPOSABLE_PACKAGE_TEST:-} != 1 || ! -f /.dockerenv || $EUID != 0 ]]; then
     echo 'Requires an explicitly opted-in disposable root Docker container.' >&2
     exit 2
 fi
@@ -52,7 +52,7 @@ smoke() {
     # Run the installed launcher as an ordinary user with a minimal environment;
     # no source checkout, virtualenv, Python or Node path can satisfy imports.
     timeout 60 runuser -u cpm-package-test -- env -i HOME="$home_dir" PATH=/usr/bin:/bin \
-        CPM_DB_PATH="$home_dir/recovery/profiles.db" \
+        CPM_CUSTOM_DB_PATH="$home_dir/recovery/profiles.db" \
         /usr/bin/camoufox-pm --desktop update-recovery status > /tmp/cpm-recovery-status
     grep -Eq '"state"[[:space:]]*:[[:space:]]*"idle"' /tmp/cpm-recovery-status
     grep -Eq '"automatic_install_available"[[:space:]]*:[[:space:]]*false' /tmp/cpm-recovery-status

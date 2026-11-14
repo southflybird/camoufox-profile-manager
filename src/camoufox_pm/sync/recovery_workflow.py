@@ -224,7 +224,7 @@ def _target_key(database: Path, *, create: bool = True):
     from camoufox_pm.config import get_settings
 
     key_file = database.parent / "secret.key"
-    configured = os.environ.get("CPM_SECRET_KEY")
+    configured = os.environ.get("CPM_CUSTOM_SECRET_KEY")
     if key_file.exists() or key_file.is_symlink():
         verify_private_path(key_file)
         key = _read_regular(key_file, 128).decode("ascii").strip()
@@ -251,7 +251,7 @@ def _target_key(database: Path, *, create: bool = True):
             _write(key_file, key.encode("ascii"))
     if key:
         Fernet(key.encode("ascii"))
-    os.environ["CPM_SECRET_KEY"] = key
+    os.environ["CPM_CUSTOM_SECRET_KEY"] = key
     get_settings.cache_clear()
 
 

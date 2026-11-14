@@ -112,8 +112,8 @@ def run_desktop(host: str = "127.0.0.1", port: int = 0, title: str = APP_NAME) -
                 ) from exc
             listener.listen(128)
             actual_port = listener.getsockname()[1]
-            os.environ["CPM_HOST"] = host
-            os.environ["CPM_PORT"] = str(actual_port)
+            os.environ["CPM_CUSTOM_HOST"] = host
+            os.environ["CPM_CUSTOM_PORT"] = str(actual_port)
             get_settings.cache_clear()
             from camoufox_pm.main import app
 
@@ -218,7 +218,7 @@ def _run_packaged_recovery() -> None:
 
         configured = Settings()
         if "db_path" not in configured.model_fields_set:
-            os.environ["CPM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
+            os.environ["CPM_CUSTOM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
         get_settings.cache_clear()
         if "--desktop" not in sys.argv[1:] and not any(
             flag in sys.argv[1:] for flag in ("--update-helper", "--update-validate")
@@ -296,7 +296,7 @@ def main() -> None:
 
         configured = Settings()
         if "db_path" not in configured.model_fields_set:
-            os.environ["CPM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
+            os.environ["CPM_CUSTOM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
         get_settings.cache_clear()
         from camoufox_pm.core.maintenance import configured_gate
         from camoufox_pm.core.update_runtime import _record, request, spawn_helper, status

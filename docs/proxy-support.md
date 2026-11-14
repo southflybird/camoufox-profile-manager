@@ -85,11 +85,11 @@ uv run pytest tests/unit/test_proxy_protocols.py tests/unit/test_proxy_check.py 
 
 For real-browser TLS tests, install **NSS certutil**, not Windows' unrelated system
 utility. Linux uses `libnss3-tools`, macOS uses Homebrew `nss`; CI uses the official
-MSYS2 `mingw-w64-x86_64-nss` package on Windows. Point `CPM_TEST_NSS_CERTUTIL` at its
+MSYS2 `mingw-w64-x86_64-nss` package on Windows. Point `CPM_CUSTOM_TEST_NSS_CERTUTIL` at its
 binary when it is not on PATH (required on Windows):
 
 ```sh
-CPM_TEST_NSS_CERTUTIL=/path/to/nss/certutil uv run pytest tests/browser/test_proxy_protocols.py --no-network
+CPM_CUSTOM_TEST_NSS_CERTUTIL=/path/to/nss/certutil uv run pytest tests/browser/test_proxy_protocols.py --no-network
 ```
 
 The fixtures generate a temporary CA, serve local HTTP/HTTPS origins and local

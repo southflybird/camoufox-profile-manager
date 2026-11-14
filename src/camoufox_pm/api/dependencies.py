@@ -66,7 +66,7 @@ def get_scheduler() -> TaskScheduler:
 
 
 async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
-    """Enforce the API key when ``CPM_API_KEY`` is set; a no-op otherwise."""
+    """Enforce the API key when ``CPM_CUSTOM_API_KEY`` is set; a no-op otherwise."""
     if not get_settings().api_key:
         return
     if not _api_key_matches(x_api_key):
@@ -81,8 +81,8 @@ async def require_auth(request: Request, x_api_key: str | None = Header(default=
     Three configurations, all decided per request so a user created by the CLI
     while the server runs takes effect immediately:
 
-    - no users, no ``CPM_API_KEY`` — open, exactly the pre-auth loopback default;
-    - ``CPM_API_KEY`` set — a matching ``X-API-Key`` always passes, so machine
+    - no users, no ``CPM_CUSTOM_API_KEY`` — open, exactly the pre-auth loopback default;
+    - ``CPM_CUSTOM_API_KEY`` set — a matching ``X-API-Key`` always passes, so machine
       clients are unaffected by user accounts existing or not;
     - any user account exists — everything else needs a valid session cookie.
     """

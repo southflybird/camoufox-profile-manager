@@ -86,7 +86,7 @@ async def test_backup_delete_requires_confirmation_and_preserves_profile(recover
 async def test_backup_delete_requires_authentication(recovery_client, monkeypatch):
     from camoufox_pm.config import get_settings
 
-    monkeypatch.setenv("CPM_API_KEY", "test-backup-delete-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "test-backup-delete-key")
     get_settings.cache_clear()
     try:
         response = await recovery_client.delete("/api/v1/system/backups/invalid?confirm=true")

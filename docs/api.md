@@ -20,13 +20,13 @@ Two independent mechanisms, either of which satisfies the guard on every
 `/api/...` route. Which ones are active follows from what is configured — there
 is no separate auth switch:
 
-1. **Nothing configured** (no users, no `CPM_API_KEY`): the API is open. This is
+1. **Nothing configured** (no users, no `CPM_CUSTOM_API_KEY`): the API is open. This is
    the default, and it is fine because the app binds to loopback.
-2. **`CPM_API_KEY` set**: every request must carry the key — the
+2. **`CPM_CUSTOM_API_KEY` set**: every request must carry the key — the
    machine-to-machine path, unchanged from before user accounts existed:
 
    ```bash
-   curl -H "X-API-Key: $CPM_API_KEY" http://localhost:8000/api/v1/profiles
+   curl -H "X-API-Key: $CPM_CUSTOM_API_KEY" http://localhost:8000/api/v1/profiles
    ```
 
    The key is compared in constant time. The web UI can send it too — paste it
@@ -58,7 +58,7 @@ session cookie. Logout returns the action envelope and clears the cookie.
 
 - A successful login sets `cpm_session`: **HttpOnly** (invisible to page
   scripts), **SameSite=Lax**, `Path=/`, and **Secure** when the request came
-  over HTTPS or `CPM_SECURE_COOKIES=1`. It expires after `CPM_SESSION_TTL_HOURS`
+  over HTTPS or `CPM_CUSTOM_SECURE_COOKIES=1`. It expires after `CPM_CUSTOM_SESSION_TTL_HOURS`
   (default 168, one week).
 - The session is server-side: the database stores only a SHA-256 of the token,
   and logout deletes the row, so a logged-out token is dead even if replayed.
@@ -442,7 +442,7 @@ polling the process table.
 Launching a profile that another instance has open returns **`409`**. Each
 launch takes a lease on the profile, and `/api/v1/browsers/active` only sees
 this instance's browsers — the lease is what one instance knows about another's.
-Retry once the holder closes the browser, or wait out `CPM_LEASE_TTL` if that
+Retry once the holder closes the browser, or wait out `CPM_CUSTOM_LEASE_TTL` if that
 instance is gone. There is no force-unlock endpoint: releasing another
 instance's lease needs `camoufox-pm unlock` on the host.
 
@@ -478,8 +478,8 @@ include app login users, app settings or schedules. Backup creation returns
 directories and unreadable credentials are not reported as successful backups.
 Omit `profile_ids` to back up all profiles, including Trash. The running app
 retries due backups every minute, defaulting to one snapshot per 24 hours and
-seven routine snapshots per profile; `CPM_BACKUP_INTERVAL_HOURS` and
-`CPM_BACKUP_RETENTION` configure this. Two latest before-update checkpoints are
+seven routine snapshots per profile; `CPM_CUSTOM_BACKUP_INTERVAL_HOURS` and
+`CPM_CUSTOM_BACKUP_RETENTION` configure this. Two latest before-update checkpoints are
 retained separately.
 
 Browser status is `{installed, version, state, progress, message, error}`, where

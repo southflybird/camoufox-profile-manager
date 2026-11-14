@@ -37,7 +37,7 @@ within a few days.
   directories are git-ignored.
 - By default, a new desktop installation creates a local `secret.key` next to the database.
   Source/server deployments encrypt proxy passwords at rest when
-  `CPM_SECRET_KEY` is configured (see `.env.example`). Generate a key with:
+  `CPM_CUSTOM_SECRET_KEY` is configured (see `.env.example`). Generate a key with:
   ```bash
   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
   ```
@@ -54,11 +54,11 @@ within a few days.
 The API has three configuration states, decided by what exists rather than by a
 switch, so the configuration cannot contradict the database:
 
-1. **Nothing configured** — no user accounts, no `CPM_API_KEY`. Requests have
+1. **Nothing configured** — no user accounts, no `CPM_CUSTOM_API_KEY`. Requests have
    local open-mode administrator authority. The app binds to `127.0.0.1` by
    default. Keep an unconfigured instance on loopback; open mode must not be
    exposed to other machines.
-2. **`CPM_API_KEY` set, no accounts** — protected requests must carry the key in `X-API-Key`,
+2. **`CPM_CUSTOM_API_KEY` set, no accounts** — protected requests must carry the key in `X-API-Key`,
    compared in constant time. This is the machine-to-machine path: one shared
    secret with administrator authority, not a per-user or per-profile scoped
    token. Do not give this key to restricted operators/viewers.
@@ -90,9 +90,9 @@ What protects a session:
   a copy of the database contains nothing replayable.
 - The cookie is **HttpOnly** (page scripts cannot read it), **SameSite=Lax**
   (cross-site POSTs do not carry it), and **Secure** when served over HTTPS or
-  when `CPM_SECURE_COOKIES=1`.
+  when `CPM_CUSTOM_SECURE_COOKIES=1`.
 - Logout deletes the server-side row: a logged-out token is invalid even if an
-  attacker kept a copy. Sessions expire after `CPM_SESSION_TTL_HOURS`
+  attacker kept a copy. Sessions expire after `CPM_CUSTOM_SESSION_TTL_HOURS`
   (default 168).
 - A failed login does not reveal whether the username exists — same status,
   same body, the same argon2 work either way — and is delayed half a second as
@@ -104,10 +104,10 @@ What protects a session:
 
 - The API binds to `127.0.0.1` by default. To expose it beyond localhost:
   create a user account (`camoufox-pm user add <name>`) for humans and/or set
-  `CPM_API_KEY` for machine clients, terminate TLS in a reverse proxy, and set
-  `CPM_SECURE_COOKIES=1` so the session cookie is never sent over plain HTTP
+  `CPM_CUSTOM_API_KEY` for machine clients, terminate TLS in a reverse proxy, and set
+  `CPM_CUSTOM_SECURE_COOKIES=1` so the session cookie is never sent over plain HTTP
   (the app itself does not serve TLS, so it cannot infer this behind a proxy).
-- Set `CPM_CORS_ORIGINS` to the specific origins you trust; do not use a wildcard
+- Set `CPM_CUSTOM_CORS_ORIGINS` to the specific origins you trust; do not use a wildcard
   together with credentials.
 - The proxy check connects to whatever host a request names and reports whether it
   answered and how fast. On an instance reachable beyond localhost without any

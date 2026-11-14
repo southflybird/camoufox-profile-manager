@@ -69,7 +69,7 @@ def main() -> None:
 
         configured = Settings()
         if "db_path" not in configured.model_fields_set:
-            os.environ["CPM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
+            os.environ["CPM_CUSTOM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
         get_settings.cache_clear()
         if args.action == "rollback" and not args.confirm_timestamp:
             helper.error("rollback requires --confirm-timestamp")
@@ -93,7 +93,7 @@ def main() -> None:
 
             configured = Settings()
             if "db_path" not in configured.model_fields_set:
-                os.environ["CPM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
+                os.environ["CPM_CUSTOM_DB_PATH"] = str(desktop_data_dir() / "profiles.db")
             get_settings.cache_clear()
         else:
             bootstrap_desktop()
@@ -254,8 +254,8 @@ def main() -> None:
     # Make the settings match what we are about to bind, so everything that reads
     # them (the Settings screen, CORS, logs) reports the real address rather than
     # the default the flags just overrode.
-    os.environ["CPM_HOST"] = args.host
-    os.environ["CPM_PORT"] = str(args.port)
+    os.environ["CPM_CUSTOM_HOST"] = args.host
+    os.environ["CPM_CUSTOM_PORT"] = str(args.port)
     get_settings.cache_clear()
 
     if args.desktop:
@@ -368,7 +368,7 @@ async def _run_user_command(args: argparse.Namespace) -> None:
                 _fail(str(exc))
             print(
                 f"User '{args.username}' created. The API and web UI now require "
-                "a login session (or the API key, if CPM_API_KEY is set)."
+                "a login session (or the API key, if CPM_CUSTOM_API_KEY is set)."
             )
         elif args.user_command == "passwd":
             password = _read_password(args)

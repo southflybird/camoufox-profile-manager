@@ -77,7 +77,7 @@ class WorkflowsUI(StageThreeUI):
         return self.page.get_by_label(self.tr(source), exact=True)
 
     def screenshot(self, name):
-        output = os.environ.get("CPM_WORKFLOW_SCREENSHOTS")
+        output = os.environ.get("CPM_CUSTOM_WORKFLOW_SCREENSHOTS")
         if output:
             path = Path(output)
             path.mkdir(parents=True, exist_ok=True)

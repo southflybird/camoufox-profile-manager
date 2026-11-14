@@ -118,7 +118,7 @@ async def test_old_unsupported_profile_is_readable_and_reports_a_block_without_l
 async def test_explicitly_clearing_socks_credentials_does_not_require_a_lost_key(
     client, monkeypatch
 ):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     try:
         entry = (
@@ -133,7 +133,7 @@ async def test_explicitly_clearing_socks_credentials_does_not_require_a_lost_key
                 },
             )
         ).json()["data"]
-        monkeypatch.delenv("CPM_SECRET_KEY")
+        monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
         get_settings.cache_clear()
         cleared = await client.patch(
             f"/api/v1/proxies/{entry['id']}",

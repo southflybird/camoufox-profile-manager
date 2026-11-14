@@ -53,7 +53,7 @@ class FakeService:
 
 @pytest.fixture
 async def enrollment_api(storage, monkeypatch):
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     monkeypatch.setattr(dependencies, "_storage_manager", storage)
     fake = FakeService()
@@ -138,7 +138,7 @@ async def test_no_anonymous_key_or_nonadmin_enrollment(enrollment_api, storage, 
     client, fake = enrollment_api
     headers = {}
     if kind == "api_key":
-        monkeypatch.setenv("CPM_API_KEY", "valid-legacy-key")
+        monkeypatch.setenv("CPM_CUSTOM_API_KEY", "valid-legacy-key")
         get_settings.cache_clear()
         headers = {"X-API-Key": "valid-legacy-key"}
     elif kind in {"operator", "viewer", "expired"}:
@@ -156,7 +156,7 @@ async def test_no_anonymous_key_or_nonadmin_enrollment(enrollment_api, storage, 
 async def test_valid_key_does_not_override_operator_cookie(enrollment_api, storage, monkeypatch):
     client, fake = enrollment_api
     headers, _, _ = await session(storage, role="operator")
-    monkeypatch.setenv("CPM_API_KEY", "valid-legacy-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "valid-legacy-key")
     get_settings.cache_clear()
     response = await client.post(
         "/api/sync/enrollment", json=BODY, headers={**headers, "X-API-Key": "valid-legacy-key"}
@@ -169,7 +169,7 @@ async def test_valid_key_does_not_override_operator_cookie(enrollment_api, stora
 async def test_cookie_admin_works_even_with_matching_key(enrollment_api, storage, monkeypatch):
     client, fake = enrollment_api
     headers, user_id, _ = await session(storage)
-    monkeypatch.setenv("CPM_API_KEY", "valid-legacy-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "valid-legacy-key")
     get_settings.cache_clear()
     response = await client.post(
         "/api/sync/enrollment", json=BODY, headers={**headers, "X-API-Key": "valid-legacy-key"}
@@ -446,7 +446,7 @@ async def test_profile_code_body_bounds_and_api_key_not_enough(
     enrollment_api, storage, monkeypatch
 ):
     client, _ = enrollment_api
-    monkeypatch.setenv("CPM_API_KEY", "legacy-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "legacy-key")
     get_settings.cache_clear()
     denied = await client.post(
         "/api/v1/sync/profiles/accept-code", headers={"X-API-Key": "legacy-key"}, json={"pack": {}}

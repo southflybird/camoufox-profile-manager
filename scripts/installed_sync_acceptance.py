@@ -462,7 +462,7 @@ def cleanup_native_slots(work):
     """Delete only UUID slots recorded by these disposable installations."""
     from camoufox_pm.sync.control import ControlStore
 
-    if sys.platform == "darwin" and os.environ.get("CPM_CI_ISOLATED_KEYCHAIN") == "1":
+    if sys.platform == "darwin" and os.environ.get("CPM_CUSTOM_CI_ISOLATED_KEYCHAIN") == "1":
         # The parent owns this dedicated keychain and deletes it as a whole after
         # every installed process has exited. No cross-executable secret access.
         return
@@ -513,9 +513,9 @@ class Device:
         environment = {
             k: v
             for k, v in os.environ.items()
-            if not k.startswith("CPM_") and k not in {"PYTHONPATH", "PYTHONHOME"}
+            if not k.startswith("CPM_CUSTOM_") and k not in {"PYTHONPATH", "PYTHONHOME"}
         }
-        environment.update(CPM_DB_PATH=str(data / "profiles.db"), PYTHONIOENCODING="utf-8")
+        environment.update(CPM_CUSTOM_DB_PATH=str(data / "profiles.db"), PYTHONIOENCODING="utf-8")
         self.executable = executable
         self.environment = environment
         self.start()
@@ -1022,7 +1022,7 @@ def main():
     if (
         arguments.vault == "native"
         and sys.platform == "darwin"
-        and os.environ.get("CPM_CI_ISOLATED_KEYCHAIN") != "1"
+        and os.environ.get("CPM_CUSTOM_CI_ISOLATED_KEYCHAIN") != "1"
     ):
         parser.error("Use run_with_ci_keychain.py for disposable macOS native acceptance")
     phase = "setup"

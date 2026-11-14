@@ -3,7 +3,7 @@ API key and the open loopback default.
 
 The three configuration states, each of which must stay coherent:
 (a) nothing configured — open, exactly as before user accounts existed;
-(b) only ``CPM_API_KEY`` — machine clients unchanged;
+(b) only ``CPM_CUSTOM_API_KEY`` — machine clients unchanged;
 (c) a user exists — a session cookie or the API key is required.
 """
 
@@ -26,7 +26,7 @@ def _fast_failures(monkeypatch):
 @pytest.fixture(autouse=True)
 def _no_api_key(monkeypatch):
     """Each test states its own key; none leaks in from the environment."""
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -55,7 +55,7 @@ async def test_state_a_nothing_configured_stays_open(client):
 
 @pytest.mark.asyncio
 async def test_state_b_api_key_alone_behaves_exactly_as_before(client, monkeypatch):
-    monkeypatch.setenv("CPM_API_KEY", "top-secret")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "top-secret")
     get_settings.cache_clear()
 
     assert (await client.get("/api/v1/profiles")).status_code == 401
@@ -151,7 +151,7 @@ async def test_a_forged_cookie_does_not_pass(client):
 @pytest.mark.asyncio
 async def test_api_key_still_works_when_users_exist(client, monkeypatch):
     """Machine clients must not break the day a human account is created."""
-    monkeypatch.setenv("CPM_API_KEY", "top-secret")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "top-secret")
     get_settings.cache_clear()
     await _create_user()
 

@@ -28,7 +28,7 @@ def request(names, **values):
 
 @pytest.fixture
 def encryption_key(monkeypatch):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

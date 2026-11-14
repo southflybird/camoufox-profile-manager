@@ -12,14 +12,14 @@ SECRET = "synthetic-sensitive-cookie-value"
 @pytest.mark.parametrize("raw", [None, "", "bad", "0", "-1", "nan", "inf"])
 def test_watchdog_disabled_without_valid_positive_opt_in(monkeypatch, raw):
     if raw is None:
-        monkeypatch.delenv("CPM_BROWSER_WATCHDOG_SECONDS", raising=False)
+        monkeypatch.delenv("CPM_CUSTOM_BROWSER_WATCHDOG_SECONDS", raising=False)
     else:
-        monkeypatch.setenv("CPM_BROWSER_WATCHDOG_SECONDS", raw)
+        monkeypatch.setenv("CPM_CUSTOM_BROWSER_WATCHDOG_SECONDS", raw)
     assert watchdog.watchdog_seconds() is None
 
 
 def test_watchdog_reads_opt_in_seconds(monkeypatch):
-    monkeypatch.setenv("CPM_BROWSER_WATCHDOG_SECONDS", "180")
+    monkeypatch.setenv("CPM_CUSTOM_BROWSER_WATCHDOG_SECONDS", "180")
     assert watchdog.watchdog_seconds() == 180
 
 

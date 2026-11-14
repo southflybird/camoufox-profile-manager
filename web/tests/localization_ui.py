@@ -1,7 +1,7 @@
 """Russian/Chinese desktop workflows with fictional data and no external services.
 
 Run after the static export: .venv/bin/python web/tests/localization_ui.py
-Set CPM_LOCALIZATION_SCREENSHOTS to an output folder to retain visual evidence.
+Set CPM_CUSTOM_LOCALIZATION_SCREENSHOTS to an output folder to retain visual evidence.
 """
 
 import json
@@ -57,7 +57,7 @@ class Localized:
         return self.page.get_by_label(self.tr(source), exact=True)
 
     def screenshot(self, name):
-        destination = os.environ.get("CPM_LOCALIZATION_SCREENSHOTS")
+        destination = os.environ.get("CPM_CUSTOM_LOCALIZATION_SCREENSHOTS")
         if destination:
             path = Path(destination)
             path.mkdir(parents=True, exist_ok=True)

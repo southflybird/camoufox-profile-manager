@@ -179,7 +179,7 @@ async def test_installed_validation_command_with_real_paired_browser(tmp_path):
     ):
         with os.fdopen(create_private_file(root / name), "w") as stream:
             json.dump(value, stream)
-    environment = dict(os.environ, CPM_UPDATE_STATE_DIR=str(root), CPM_DB_PATH=str(database))
+    environment = dict(os.environ, CPM_CUSTOM_UPDATE_STATE_DIR=str(root), CPM_CUSTOM_DB_PATH=str(database))
     process = None
     try:
         process = await asyncio.create_subprocess_exec(

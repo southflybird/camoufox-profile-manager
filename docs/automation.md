@@ -189,7 +189,7 @@ and poll receipts; executable code is not loaded into the manager.
   a real authenticated HTTPS-proxy workflow and exports a sanitized summary.
   This distinguishes source/static checks from frozen-package proof.
 
-Set `CPM_WORKFLOW_SCREENSHOTS` during UI acceptance to retain fictional screenshots.
+Set `CPM_CUSTOM_WORKFLOW_SCREENSHOTS` during UI acceptance to retain fictional screenshots.
 Additional click/fill steps and an interactive multi-window synchronizer require
 their own permission, cancellation and acceptance design.
 

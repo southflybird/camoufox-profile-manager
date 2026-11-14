@@ -105,7 +105,7 @@ class InstalledFixture(ProxyFixture):
             else:
                 probe = (
                     f"fetch({json.dumps(urls[0])},{{cache:'no-store'}}).then(async response=>{{"
-                    "if(!response.ok || await response.text()!=='CPM_PROXY_PROTOCOL_PROOF') throw Error();"
+                    "if(!response.ok || await response.text()!=='CPM_CUSTOM_PROXY_PROTOCOL_PROOF') throw Error();"
                     "}).then("
                     f"()=>fetch('/result/{nonce}/accepted'),"
                     f"()=>fetch('/result/{nonce}/rejected'));"
@@ -127,7 +127,7 @@ class InstalledFixture(ProxyFixture):
                 f"<script>fetch('{receipt}',{{cache:'no-store'}}).catch(()=>{{}})</script>"
             ).encode("ascii")
         else:
-            body = b"CPM_PROXY_PROTOCOL_PROOF"
+            body = b"CPM_CUSTOM_PROXY_PROTOCOL_PROOF"
         writer.write(
             b"HTTP/1.1 200 OK\r\nConnection: close\r\nCache-Control: no-store\r\n"
             b"Access-Control-Allow-Origin: *\r\n"
@@ -226,7 +226,7 @@ def trust_profile(directory, ca, data):
     directory = Path(directory).resolve()
     if not directory.is_relative_to(data.resolve()) or directory == data.resolve():
         raise RuntimeError("Browser trust path escaped disposable data")
-    configured = os.environ.get("CPM_TEST_NSS_CERTUTIL")
+    configured = os.environ.get("CPM_CUSTOM_TEST_NSS_CERTUTIL")
     tool = configured or shutil.which("certutil")
     if not tool or (os.name == "nt" and not configured):
         raise RuntimeError("Explicit NSS certutil is required for installed TLS acceptance")

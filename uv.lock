@@ -264,7 +264,7 @@ geoip = [
 
 [[package]]
 name = "camoufox-profile-manager"
-version = "0.7.0+southflybird.2"
+version = "0.7.0+southflybird.3"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

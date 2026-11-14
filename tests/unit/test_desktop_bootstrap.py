@@ -14,8 +14,8 @@ REAL_DESKTOP_DATA_DIR = config.desktop_data_dir
 @pytest.fixture(autouse=True)
 def isolated_settings(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("CPM_DB_PATH", raising=False)
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_DB_PATH", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     monkeypatch.setattr(config, "desktop_data_dir", lambda: tmp_path / "desktop-data")
     config.get_settings.cache_clear()
     yield
@@ -38,7 +38,7 @@ def test_restart_reuses_the_same_key_after_the_database_exists(tmp_path, monkeyp
     config.bootstrap_desktop()
     first_key = config.get_settings().secret_key
     (tmp_path / "desktop-data" / "profiles.db").write_bytes(b"existing database")
-    monkeypatch.delenv("CPM_SECRET_KEY")
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
     config.bootstrap_desktop()
     assert config.get_settings().secret_key == first_key
     assert (tmp_path / "desktop-data" / "profiles.db").read_bytes() == b"existing database"
@@ -57,8 +57,8 @@ def test_existing_database_without_key_is_not_given_a_replacement(tmp_path):
 def test_explicit_environment_database_and_secret_win(tmp_path, monkeypatch):
     database = tmp_path / "custom" / "kept.db"
     key = Fernet.generate_key().decode()
-    monkeypatch.setenv("CPM_DB_PATH", str(database))
-    monkeypatch.setenv("CPM_SECRET_KEY", key)
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(database))
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", key)
     config.bootstrap_desktop()
     assert config.get_settings().db_path == str(database)
     assert config.get_settings().secret_key == key
@@ -69,7 +69,7 @@ def test_explicit_environment_database_and_secret_win(tmp_path, monkeypatch):
 def test_dotenv_database_and_secret_win(tmp_path):
     database = tmp_path / "from-dotenv" / "kept.db"
     key = Fernet.generate_key().decode()
-    (tmp_path / ".env").write_text(f"CPM_DB_PATH={database}\nCPM_SECRET_KEY={key}\n")
+    (tmp_path / ".env").write_text(f"CPM_CUSTOM_DB_PATH={database}\nCPM_CUSTOM_SECRET_KEY={key}\n")
     config.bootstrap_desktop()
     assert config.get_settings().db_path == str(database)
     assert config.get_settings().secret_key == key

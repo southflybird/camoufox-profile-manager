@@ -329,7 +329,7 @@ async def read_canvases(options, user_data_dir, *urls, diagnostics=None):
                     **{key: item for key, item in main_snapshot.items() if key != "value"},
                 }
                 diagnostics.append(record)
-        diagnostic_dir = os.environ.get("CPM_CANVAS_DIAGNOSTIC_DIR")
+        diagnostic_dir = os.environ.get("CPM_CUSTOM_CANVAS_DIAGNOSTIC_DIR")
         if diagnostics is not None and diagnostic_dir:
             diagnostics[-1]["graphics"] = await canvas_graphics_diagnostic(browser)
     if diagnostics is not None and diagnostic_dir:
@@ -413,7 +413,7 @@ async def test_stable_canvas_survives_a_relaunch(tmp_path, local_sites):
     profile.fingerprint = fingerprint_store.resolve(options)
     assert profile.fingerprint, "the pin carries the font list this relies on"
 
-    mode = os.environ.get("CPM_CANVAS_RASTER_MODE", "default")
+    mode = os.environ.get("CPM_CUSTOM_CANVAS_RASTER_MODE", "default")
     diagnostics = []
     first = await read_canvas(
         canvas_probe_options(profile, mode),
@@ -427,7 +427,7 @@ async def test_stable_canvas_survives_a_relaunch(tmp_path, local_sites):
         local_sites.first,
         diagnostics=diagnostics,
     )
-    if os.environ.get("CPM_CANVAS_CACHE_PROBE") == "1":
+    if os.environ.get("CPM_CUSTOM_CANVAS_CACHE_PROBE") == "1":
         diagnostics[0]["phase"] = "initial"
         diagnostics[1]["phase"] = "restart"
         for phase, directory in (
@@ -449,7 +449,7 @@ async def test_stable_canvas_survives_a_relaunch(tmp_path, local_sites):
             diagnostics=diagnostics,
         )
         diagnostics[-1].update({"phase": "after-cache-removal", "removedCaches": removed})
-        diagnostic_dir = os.environ.get("CPM_CANVAS_DIAGNOSTIC_DIR")
+        diagnostic_dir = os.environ.get("CPM_CUSTOM_CANVAS_DIAGNOSTIC_DIR")
         if diagnostic_dir:
             for number, record in enumerate(diagnostics, 1):
                 (Path(diagnostic_dir) / f"launch-{number}.json").write_text(

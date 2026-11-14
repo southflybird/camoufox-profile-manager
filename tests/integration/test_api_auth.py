@@ -7,8 +7,8 @@ from camoufox_pm.config import get_settings
 
 @pytest.mark.asyncio
 async def test_no_key_configured_allows_requests(client, monkeypatch):
-    """With CPM_API_KEY unset the guard is a no-op."""
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    """With CPM_CUSTOM_API_KEY unset the guard is a no-op."""
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     try:
         response = await client.get("/api/profiles")
@@ -19,7 +19,7 @@ async def test_no_key_configured_allows_requests(client, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_key_configured_enforces_header(client, monkeypatch):
-    monkeypatch.setenv("CPM_API_KEY", "top-secret")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "top-secret")
     get_settings.cache_clear()
     try:
         missing = await client.get("/api/profiles")

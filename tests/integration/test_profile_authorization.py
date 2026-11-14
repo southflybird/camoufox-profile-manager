@@ -10,7 +10,7 @@ PASSWORD = "strong-test-password"
 
 
 async def setup_actor(client, role, monkeypatch):
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     manager = dependencies.get_profile_manager()
     own = await manager.create_profile(

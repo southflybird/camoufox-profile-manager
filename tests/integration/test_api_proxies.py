@@ -23,8 +23,8 @@ PAYLOAD = {
 
 @pytest.fixture
 async def proxy_client(client, monkeypatch):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
     get_settings.cache_clear()
     yield client
     get_settings.cache_clear()
@@ -212,7 +212,7 @@ async def test_missing_key_is_explicit_conflict_and_metadata_stays_available(
     proxy = await create(proxy_client)
     manager = get_profile_manager()
     profile = await manager.create_profile("target", generate_fingerprint=False)
-    monkeypatch.delenv("CPM_SECRET_KEY")
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
     get_settings.cache_clear()
     for response in (
         await proxy_client.post("/api/v1/proxies", json=PAYLOAD),

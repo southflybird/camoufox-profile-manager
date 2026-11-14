@@ -32,7 +32,7 @@ def service():
 
 
 def deployment():
-    filename = os.environ.get("CPM_UPDATE_POLICY")
+    filename = os.environ.get("CPM_CUSTOM_UPDATE_POLICY")
     if not filename or not getattr(sys, "frozen", False) or sys.platform not in ("darwin", "win32"):
         raise UpdateVerificationError(
             "Automatic updates require a provisioned signed desktop installation"
@@ -506,13 +506,13 @@ def spawn_helper():
     env = dict(os.environ)
     for field, value in settings.model_dump().items():
         if value is not None:
-            env["CPM_" + field.upper()] = ",".join(value) if isinstance(value, list) else str(value)
+            env["CPM_CUSTOM_" + field.upper()] = ",".join(value) if isinstance(value, list) else str(value)
     if settings.webui_dir:
-        env["CPM_WEBUI_DIR"] = str(Path(settings.webui_dir).resolve())
-    env["CPM_DB_PATH"] = str(Path(settings.db_path).resolve())
-    env["CPM_UPDATE_POLICY"] = str(Path(env["CPM_UPDATE_POLICY"]).resolve())
+        env["CPM_CUSTOM_WEBUI_DIR"] = str(Path(settings.webui_dir).resolve())
+    env["CPM_CUSTOM_DB_PATH"] = str(Path(settings.db_path).resolve())
+    env["CPM_CUSTOM_UPDATE_POLICY"] = str(Path(env["CPM_CUSTOM_UPDATE_POLICY"]).resolve())
     if settings.secret_key:
-        env["CPM_SECRET_KEY"] = settings.secret_key
+        env["CPM_CUSTOM_SECRET_KEY"] = settings.secret_key
     subprocess.Popen(args, cwd=destination, env=env, close_fds=True)
 
 

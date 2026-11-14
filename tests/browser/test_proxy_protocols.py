@@ -20,7 +20,7 @@ from tests.support.proxy_protocols import certificates, proxy_fixture
 
 
 def trust_test_ca(directory, ca, *, existing=False):
-    configured = os.environ.get("CPM_TEST_NSS_CERTUTIL")
+    configured = os.environ.get("CPM_CUSTOM_TEST_NSS_CERTUTIL")
     executable = configured or shutil.which("certutil")
     if not executable or (os.name == "nt" and not configured):
         if os.environ.get("CI"):
@@ -103,7 +103,7 @@ async def test_real_browser_both_destinations_refusal_and_cleanup(tmp_path, prot
                     f"{scheme}://cpm-origin.invalid:{port}/proof", timeout=15000
                 )
                 assert response.status == 200
-                assert await page.inner_text("body") == "CPM_PROXY_PROTOCOL_PROOF"
+                assert await page.inner_text("body") == "CPM_CUSTOM_PROXY_PROTOCOL_PROOF"
             if protocol.startswith("socks"):
                 destinations = [event[1] for event in fixture.events if event[0] == "connect"]
                 assert b"cpm-origin.invalid" in destinations

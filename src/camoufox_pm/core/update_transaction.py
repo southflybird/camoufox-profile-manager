@@ -155,7 +155,7 @@ class UpdateTransaction:
             for key, value in os.environ.items()
             if key not in {"PYTHONPATH", "PYTHONHOME", "LD_PRELOAD", "DYLD_INSERT_LIBRARIES"}
         }
-        env["CPM_UPDATE_STATE_DIR"] = str(self.service.root)
+        env["CPM_CUSTOM_UPDATE_STATE_DIR"] = str(self.service.root)
         # Only installed authenticated executable is allowed to run validation.
         subprocess.run(
             [str(executable), "--update-validate", str(receipt)],

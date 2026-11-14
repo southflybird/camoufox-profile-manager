@@ -162,8 +162,8 @@
   "Security": "Безопасность",
   "Configured with environment variables; restart to apply changes.": "Настраивается переменными окружения. Для применения изменений перезапустите менеджер.",
   "Proxy password encryption": "Шифрование паролей прокси",
-  "Passwords are encrypted at rest with CPM_SECRET_KEY.": "Пароли зашифрованы при хранении с помощью CPM_SECRET_KEY.",
-  "Passwords are stored as plain text. Set CPM_SECRET_KEY to encrypt them.": "Пароли хранятся в открытом виде. Укажите CPM_SECRET_KEY, чтобы включить шифрование.",
+  "Passwords are encrypted at rest with CPM_CUSTOM_SECRET_KEY.": "Пароли зашифрованы при хранении с помощью CPM_CUSTOM_SECRET_KEY.",
+  "Passwords are stored as plain text. Set CPM_CUSTOM_SECRET_KEY to encrypt them.": "Пароли хранятся в открытом виде. Укажите CPM_CUSTOM_SECRET_KEY, чтобы включить шифрование.",
   "User accounts": "Учётные записи",
   "Login is required. Manage accounts with: camoufox-pm user": "Требуется вход. Управление учётными записями: camoufox-pm user",
   "No user accounts. Create one with: camoufox-pm user add <name>": "Учётных записей нет. Создание: camoufox-pm user add <name>",
@@ -172,7 +172,7 @@
   "No API key is set. Machine clients have no way in; humans log in.": "API-ключ не задан. Пользователи входят с паролем, а автоматические клиенты доступа не имеют.",
   "No API key is set. Anyone who can reach this port can use the API.": "API-ключ не задан. Любой, кто может подключиться к этому порту, имеет доступ к API.",
   "This browser's key": "Ключ этого браузера",
-  "Paste CPM_API_KEY to keep using this UI": "Вставьте CPM_API_KEY для доступа к интерфейсу",
+  "Paste CPM_CUSTOM_API_KEY to keep using this UI": "Вставьте CPM_CUSTOM_API_KEY для доступа к интерфейсу",
   "API key for this browser": "API-ключ для этого браузера",
   "Save": "Сохранить",
   "Bound to": "Адрес прослушивания",
@@ -1337,6 +1337,6 @@
   "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "Для отката нужны соответствующая версия приложения и полная копия данных. Архивов профилей недостаточно.",
   "No custom release has been published yet.": "Пользовательские выпуски пока не опубликованы.",
   "API key required": "Требуется API-ключ",
-  "This instance requires the API key configured in CPM_API_KEY before you can open the app.": "Этот экземпляр защищён API-ключом. Введите ключ из CPM_API_KEY, чтобы открыть приложение.",
-  "The API key is not valid. Check CPM_API_KEY and try again.": "Неверный API-ключ. Проверьте CPM_API_KEY и повторите попытку."
+  "This instance requires the API key configured in CPM_CUSTOM_API_KEY before you can open the app.": "Этот экземпляр защищён API-ключом. Введите ключ из CPM_CUSTOM_API_KEY, чтобы открыть приложение.",
+  "The API key is not valid. Check CPM_CUSTOM_API_KEY and try again.": "Неверный API-ключ. Проверьте CPM_CUSTOM_API_KEY и повторите попытку."
 }

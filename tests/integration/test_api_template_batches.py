@@ -168,7 +168,7 @@ async def test_partial_batch_results_are_audited_as_partial_and_do_not_leak_erro
 @pytest.mark.asyncio
 async def test_unavailable_proxy_key_is_actionable_and_creates_nothing(client, monkeypatch):
     entry = await template(client)
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     try:
         proxy = await client.post(
@@ -183,7 +183,7 @@ async def test_unavailable_proxy_key_is_actionable_and_creates_nothing(client, m
         )
         assert proxy.status_code == 201
         proxy = proxy.json()["data"]
-        monkeypatch.delenv("CPM_SECRET_KEY")
+        monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
         get_settings.cache_clear()
         data = batch(names=["one"], proxy_refs=[{"id": proxy["id"], "row_version": 0}])
         for suffix in ("batch-preview", "profile-batches"):

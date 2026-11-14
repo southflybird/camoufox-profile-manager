@@ -27,7 +27,7 @@ VALUES = {
 
 @pytest.fixture
 async def inventory(profile_manager, monkeypatch):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     yield ProxyInventory(profile_manager)
     get_settings.cache_clear()
@@ -78,9 +78,9 @@ async def test_missing_wrong_and_invalid_keys_never_forward_ciphertext(inventory
     profile = await inventory.manager.create_profile("target", generate_fingerprint=False)
     for key in (None, Fernet.generate_key().decode(), "invalid"):
         if key is None:
-            monkeypatch.delenv("CPM_SECRET_KEY")
+            monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
         else:
-            monkeypatch.setenv("CPM_SECRET_KEY", key)
+            monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", key)
         get_settings.cache_clear()
         with pytest.raises(ProxyCredentialsUnavailable):
             await inventory.check(proxy["id"])
@@ -93,7 +93,7 @@ async def test_missing_wrong_and_invalid_keys_never_forward_ciphertext(inventory
 
 @pytest.mark.asyncio
 async def test_password_write_requires_key_but_plain_metadata_does_not(inventory, monkeypatch):
-    monkeypatch.delenv("CPM_SECRET_KEY")
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
     get_settings.cache_clear()
     with pytest.raises(ProxyCredentialsUnavailable):
         await inventory.create(VALUES)

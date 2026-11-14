@@ -33,8 +33,8 @@ def run(monkeypatch):
 
     # main() writes these itself; setting them through monkeypatch first means
     # the originals are restored however the run ends.
-    monkeypatch.setenv("CPM_HOST", "127.0.0.1")
-    monkeypatch.setenv("CPM_PORT", "8000")
+    monkeypatch.setenv("CPM_CUSTOM_HOST", "127.0.0.1")
+    monkeypatch.setenv("CPM_CUSTOM_PORT", "8000")
 
     def invoke(*args: str):
         monkeypatch.setattr(sys, "argv", ["camoufox-pm", *args])
@@ -104,7 +104,7 @@ def run_user(monkeypatch, tmp_path):
     """Run a ``user`` subcommand against a throwaway database, with password
     prompts answered from a scripted list."""
 
-    monkeypatch.setenv("CPM_DB_PATH", str(tmp_path / "cli.db"))
+    monkeypatch.setenv("CPM_CUSTOM_DB_PATH", str(tmp_path / "cli.db"))
     monkeypatch.setattr(cli.uvicorn, "run", lambda *a, **k: pytest.fail("must not serve"))
 
     def invoke(*args: str, prompts: list[str] | None = None):

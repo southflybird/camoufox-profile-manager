@@ -31,11 +31,11 @@ def run(
             port = listener.getsockname()[1]
         base = f"http://127.0.0.1:{port}"
         environment = {
-            key: value for key, value in os.environ.items() if not key.startswith("CPM_")
+            key: value for key, value in os.environ.items() if not key.startswith("CPM_CUSTOM_")
         }
-        environment["CPM_DB_PATH"] = str(work / "profiles.db")
+        environment["CPM_CUSTOM_DB_PATH"] = str(work / "profiles.db")
         if require_api_key:
-            environment["CPM_API_KEY"] = synthetic_key
+            environment["CPM_CUSTOM_API_KEY"] = synthetic_key
         with (work / "server.log").open("w", encoding="utf-8") as log:
             startup = None
             if packaged and os.name == "nt":
@@ -106,7 +106,7 @@ def run(
                     profiles = [create(f"Keep {index:02}") for index in range(28)]
                     with sync_playwright() as playwright:
                         browser = playwright.chromium.launch(
-                            channel=os.environ.get("CPM_TEST_BROWSER")
+                            channel=os.environ.get("CPM_CUSTOM_TEST_BROWSER")
                             or ("msedge" if sys.platform == "win32" else None),
                             headless=True,
                         )
@@ -262,6 +262,28 @@ def run(
                                 "https://github.com/southflybird/camoufox-profile-manager/releases",
                             )
                             if require_api_key:
+                                page.get_by_role("link", name="Access and activity", exact=True).click()
+                                page.get_by_label("Username", exact=True).fill("custom-admin")
+                                page.get_by_label("Password", exact=True).fill("synthetic-admin-password")
+                                page.get_by_role("button", name="Add user", exact=True).click()
+                                expect(page.get_by_role("heading", name="Sign in", exact=True)).to_be_visible()
+                                page.get_by_label("Username", exact=True).fill("custom-admin")
+                                page.get_by_label("Password", exact=True).fill("wrong-password")
+                                page.get_by_role("button", name="Sign in", exact=True).click()
+                                expect(page.get_by_text("Invalid username or password", exact=True)).to_be_visible()
+                                page.get_by_label("Password", exact=True).fill("synthetic-admin-password")
+                                page.get_by_role("button", name="Sign in", exact=True).click()
+                                expect(page.get_by_role("button", name="Log out", exact=True)).to_be_visible()
+                                page.reload(wait_until="networkidle")
+                                expect(page.get_by_role("button", name="Log out", exact=True)).to_be_visible()
+                                # Machine clients remain independent of the UI session.
+                                api.get("/api/v1/system/config").raise_for_status()
+                                page.get_by_role("button", name="Log out", exact=True).click()
+                                expect(page.get_by_role("heading", name="Sign in", exact=True)).to_be_visible()
+                                page.reload(wait_until="networkidle")
+                                expect(page.get_by_role("heading", name="Sign in", exact=True)).to_be_visible()
+                                api.get("/api/v1/system/config").raise_for_status()
+                            if require_api_key:
                                 page.route(
                                     "**/api/v1/auth/session",
                                     lambda route: route.fulfill(
@@ -297,6 +319,7 @@ def run(
                     "blocked_storage": blocked_storage,
                     "packaged": packaged is not None,
                     "checks": [
+                        "username initialization, login, session reuse, logout and independent machine key",
                         "scheduled refresh",
                         "search/page/selection retention",
                         "unfinished edit retention",

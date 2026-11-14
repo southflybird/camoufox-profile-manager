@@ -39,7 +39,7 @@ from camoufox_pm.config import get_settings
 async def test_stage_two_requires_auth_on_both_prefixes(
     client, monkeypatch, prefix, method, path, payload
 ):
-    monkeypatch.setenv("CPM_API_KEY", "stage-two-test-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "stage-two-test-key")
     get_settings.cache_clear()
     try:
         response = await client.request(method, prefix + path, json=payload)

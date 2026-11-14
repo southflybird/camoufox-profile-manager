@@ -12,7 +12,7 @@ MAX_FRAMES = 16
 
 
 def watchdog_seconds() -> float | None:
-    raw = os.environ.get("CPM_BROWSER_WATCHDOG_SECONDS", "")
+    raw = os.environ.get("CPM_CUSTOM_BROWSER_WATCHDOG_SECONDS", "")
     try:
         seconds = float(raw)
     except ValueError:

@@ -84,8 +84,8 @@ export default function SettingsPage() {
             <Toggle
               on={config.encryption_enabled}
               label={t('Proxy password encryption')}
-              onText={t('Passwords are encrypted at rest with CPM_SECRET_KEY.')}
-              offText={t('Passwords are stored as plain text. Set CPM_SECRET_KEY to encrypt them.')}
+              onText={t('Passwords are encrypted at rest with CPM_CUSTOM_SECRET_KEY.')}
+              offText={t('Passwords are stored as plain text. Set CPM_CUSTOM_SECRET_KEY to encrypt them.')}
               warnWhenOff
             />
             <Toggle
@@ -115,7 +115,7 @@ export default function SettingsPage() {
                     className="field font-mono"
                     value={key}
                     onChange={(event) => setKey(event.target.value)}
-                    placeholder={t('Paste CPM_API_KEY to keep using this UI')}
+                    placeholder={t('Paste CPM_CUSTOM_API_KEY to keep using this UI')}
                     aria-label={t('API key for this browser')}
                     autoComplete="off"
                   />

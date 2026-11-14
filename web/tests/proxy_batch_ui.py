@@ -131,7 +131,7 @@ class ProxyBatchUI(DesktopUI):
         expect(dialog.get_by_role("status")).to_contain_text("批量操作已结束")
         expect(dialog).to_contain_text("可连通：3；无法连通：1；检测出错：1；已取消：0。")
         expect(dialog.get_by_label("并发检测数", exact=True)).to_be_disabled()
-        destination = os.environ.get("CPM_PROXY_BATCH_SCREENSHOTS")
+        destination = os.environ.get("CPM_CUSTOM_PROXY_BATCH_SCREENSHOTS")
         if destination:
             path = Path(destination)
             path.mkdir(parents=True, exist_ok=True)

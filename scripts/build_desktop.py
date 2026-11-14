@@ -44,7 +44,7 @@ def package_desktop() -> list[Path]:
         create_dmg(stage, output)
         return [output]
     if sys.platform == "win32":
-        makensis = os.environ.get("CPM_NSIS") or shutil.which("makensis")
+        makensis = os.environ.get("CPM_CUSTOM_NSIS") or shutil.which("makensis")
         if not makensis:
             candidates = [
                 Path("C:/Program Files (x86)/NSIS/makensis.exe"),
@@ -52,7 +52,7 @@ def package_desktop() -> list[Path]:
             ]
             makensis = next((str(path) for path in candidates if path.is_file()), None)
         if not makensis:
-            raise SystemExit("NSIS compiler not found. Set CPM_NSIS to makensis.exe or add it to PATH.")
+            raise SystemExit("NSIS compiler not found. Set CPM_CUSTOM_NSIS to makensis.exe or add it to PATH.")
         bootstrapper = ROOT / "build" / "MicrosoftEdgeWebview2Setup.exe"
         bootstrapper.parent.mkdir(parents=True, exist_ok=True)
         # Official Evergreen endpoint; verify its publisher before redistribution.
@@ -65,12 +65,12 @@ def package_desktop() -> list[Path]:
         signature_env = {
             key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"
         }
-        signature_env["CPM_WEBVIEW2_BOOTSTRAPPER"] = str(bootstrapper)
+        signature_env["CPM_CUSTOM_WEBVIEW2_BOOTSTRAPPER"] = str(bootstrapper)
         subprocess.run(
             [powershell, "-NoProfile", "-NonInteractive", "-Command",
              "$ErrorActionPreference = 'Stop'; "
              "Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); "
-             "$signature = Get-AuthenticodeSignature $env:CPM_WEBVIEW2_BOOTSTRAPPER; "
+             "$signature = Get-AuthenticodeSignature $env:CPM_CUSTOM_WEBVIEW2_BOOTSTRAPPER; "
              "if ($signature.Status -ne 'Valid' -or "
              "$signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') "
              "{ throw 'WebView2 bootstrapper signature is not valid Microsoft code' }"],

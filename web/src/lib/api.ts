@@ -156,10 +156,10 @@ export function isStaleWrite(error: unknown): boolean {
   return error instanceof ApiRequestError && error.status === 409 && error.code === 'stale_write'
 }
 
-const API_KEY_STORAGE = 'camoufox-pm.api-key'
+const API_KEY_STORAGE = 'cpm-custom.api-key'
 let apiKeyOverride: string | undefined
 
-/** The key CPM_API_KEY expects, if the user has stored one. */
+/** The key CPM_CUSTOM_API_KEY expects, if the user has stored one. */
 export function getApiKey(): string {
   if (apiKeyOverride !== undefined) return apiKeyOverride
   if (typeof window === 'undefined') return ''

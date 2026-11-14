@@ -62,7 +62,7 @@ their permissions are preserved; recovery prints the new local profile ID.
 
 The target installation's adjacent `secret.key` protects imported proxy credentials.
 If no key exists, a new one is created for a clean or unencrypted destination.
-`CPM_SECRET_KEY`, when supplied, must agree with an existing adjacent key. An
+`CPM_CUSTOM_SECRET_KEY`, when supplied, must agree with an existing adjacent key. An
 existing encrypted database without its key is rejected; recover that installation's
 key or choose a clean destination. Keep the target `secret.key` with its local data
 backup, separately from the owner recovery secret.

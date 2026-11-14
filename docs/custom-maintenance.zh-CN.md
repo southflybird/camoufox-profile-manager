@@ -1,7 +1,7 @@
 # CPM Custom 开发、升级与恢复
 
 维护者：southflybird。上游：polyackiy/camoufox-profile-manager。
-当前基础：官方 v0.7.0；定制版本：0.7.0+southflybird.2。
+当前基础：官方 v0.7.0；定制版本：0.7.0+southflybird.3。
 
 ## 分支与提交
 
@@ -26,7 +26,7 @@ python -m uv run --no-sync python -m camoufox_pm.desktop
 
 桌面版默认数据目录：`%LOCALAPPDATA%\CPM Custom`，安装目录：`%LOCALAPPDATA%\Programs\CPM Custom`；开始菜单与卸载注册均使用独立名称。
 浏览器引擎下载能力仍沿用官方实现，浏览器缓存可能与官方版共用；管理器的数据库、配置、密钥与备份默认隔离。
-`CPM_DB_PATH`、`CPM_SECRET_KEY` 或 `.env` 中的显式配置优先，运行前必须检查它们是否指向正式数据。
+`CPM_CUSTOM_DB_PATH`、`CPM_CUSTOM_SECRET_KEY` 或 `.env` 中的显式配置优先，运行前必须检查它们是否指向正式数据。
 CLI 未加 `--desktop` 时仍使用工作目录下的 `data/profiles.db`。
 
 不要让官方版和定制版同时打开同一套配置数据。首次验证只使用新建的测试配置；正式数据不自动迁移。
@@ -60,21 +60,21 @@ https://github.com/southflybird/camoufox-profile-manager/releases
 管理器的更新 API 与界面下载链接均限制在此仓库，不回退到官方安装包。没有定制发布时会明确提示。
 本轮只支持手动安装，应用界面不提供自动替换入口。浏览器引擎下载与应用更新分别处理。
 
-Python/npm/两份锁文件的版本须一致，例如 `0.7.0+southflybird.2`，对应标签 `custom-v0.7.0-r2`。
+Python/npm/两份锁文件的版本须一致，例如 `0.7.0+southflybird.3`，对应标签 `custom-v0.7.0-r3`。
 GitHub prerelease 标志控制预览发布；正式用户不会看到预览更新。预览测试后可以发布同一构建；若修改内容则增加 r 修订号。
 
 ```powershell
-python -m uv run --no-sync python scripts/verify_custom_release.py --tag custom-v0.7.0-r2
+python -m uv run --no-sync python scripts/verify_custom_release.py --tag custom-v0.7.0-r3
 # 完成下面的检查后，才创建并推送标签。
-git tag -a custom-v0.7.0-r2 -m 'CPM Custom 0.7.0 r2'
-git push origin custom-v0.7.0-r2
+git tag -a custom-v0.7.0-r3 -m 'CPM Custom 0.7.0 r3'
+git push origin custom-v0.7.0-r3
 ```
 
 仅 `custom-v*` 标签触发定制发布流水线。流水线构建 Windows x64 安装包、运行冻结程序和安装生命周期检查、附加 SHA-256，创建 **draft prerelease**。
 草稿不自动公开。安装与恢复验证完成后，在 GitHub 发布草稿。不要将镜像上游标签作为自己的新发布推送。
 上游其他平台构建脚本仍保留供参考，本轮交付只承诺 Windows x64。
 
-本地打包需要 NSIS（makensis 在 PATH、位于默认安装目录，或在 `%LOCALAPPDATA%\CPMCustomTools\nsis-3.13`）。也可通过 `CPM_NSIS` 指定编译器绝对路径：
+本地打包需要 NSIS（makensis 在 PATH、位于默认安装目录，或在 `%LOCALAPPDATA%\CPMCustomTools\nsis-3.13`）。也可通过 `CPM_CUSTOM_NSIS` 指定编译器绝对路径：
 
 ```powershell
 python -m uv run --no-sync python scripts/build_desktop.py --package
@@ -90,11 +90,11 @@ python -m uv run --no-sync ruff check src tests scripts/verify_custom_release.py
 python -m uv run --no-sync ruff format --check src tests
 python -m uv run --no-sync mypy --platform linux src/camoufox_pm
 # 首次 import 时也使用独立目录，不接触工作区或正式数据库。
-$env:CPM_DB_PATH = Join-Path $env:TEMP 'cpm-custom-tests-bootstrap\profiles.db'
+$env:CPM_CUSTOM_DB_PATH = Join-Path $env:TEMP 'cpm-custom-tests-bootstrap\profiles.db'
 # 在独立 PowerShell 测试进程中移除继承的 API 密钥，不修改系统环境设置。
-Remove-Item Env:\CPM_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:\CPM_CUSTOM_API_KEY -ErrorAction SilentlyContinue
 python -m uv run --no-sync pytest -m 'not browser' -W error::ResourceWarning -W error::pytest.PytestUnraisableExceptionWarning
-Remove-Item Env:\CPM_DB_PATH
+Remove-Item Env:\CPM_CUSTOM_DB_PATH
 Push-Location web
 npm.cmd test
 npm.cmd run lint
@@ -104,7 +104,7 @@ python -m uv run --no-sync python scripts/build_webui.py
 
 另需在隔离配置中人工检查：首次启动、安装浏览器、创建与启动配置、外部关闭浏览器、重启、配置归档恢复、覆盖安装后数据保留。
 新刷新行为由 `web/tests/auto-refresh.test.ts` 与真实浏览器烟雾测试覆盖。
-使用本机已安装的 Edge 验证 UI：`python -m uv run --no-sync python scripts/smoke_custom_ui.py`；可通过 `CPM_TEST_BROWSER=chrome` 改用 Chrome。
+使用本机已安装的 Edge 验证 UI：`python -m uv run --no-sync python scripts/smoke_custom_ui.py`；可通过 `CPM_CUSTOM_TEST_BROWSER=chrome` 改用 Chrome。
 类型检查与 CI 一样按 Linux 平台分析跨平台代码。上游部分完整测试依赖 POSIX 或符号链接权限，Windows 本机的完整套件不能替代 Linux CI。
 
 ## 备份与回退
@@ -131,7 +131,7 @@ python -m uv run --no-sync camoufox-pm --desktop update-recovery restore --check
 
 ## API 密钥启动修复（r2）
 
-如果环境中设置了 `CPM_API_KEY`，而定制数据目录尚无账户，首次打开会显示密钥验证页。输入既有密钥后进入完整界面；不会关闭密钥保护或复制官方账户数据。未设置密钥且没有账户时仍直接进入应用。
+如果环境中设置了 `CPM_CUSTOM_API_KEY`，而定制数据目录尚无账户，首次打开会显示密钥验证页。输入既有密钥后进入完整界面；不会关闭密钥保护或复制官方账户数据。未设置密钥且没有账户时仍直接进入应用。
 
 r1 在此场景错误地进入主页并循环触发 401 和登录探测，导致页面闪烁。r2 同时修复后台读取的 403 导致的反复挂载，增加存储受限时的内存凭据回退。
 

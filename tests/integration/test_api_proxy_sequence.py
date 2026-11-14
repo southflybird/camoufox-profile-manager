@@ -137,7 +137,7 @@ async def test_real_session_revocation_inside_lease_prevents_assignment(client, 
 async def test_missing_key_blocks_entire_sequence_without_reflecting_credentials(
     client, monkeypatch
 ):
-    monkeypatch.setenv("CPM_SECRET_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("CPM_CUSTOM_SECRET_KEY", Fernet.generate_key().decode())
     get_settings.cache_clear()
     try:
         data = await pairs(client)
@@ -147,7 +147,7 @@ async def test_missing_key_blocks_entire_sequence_without_reflecting_credentials
             json={"row_version": 0, "username": "private-user", "password": "private-password"},
         )
         data["assignments"][1]["proxy"]["row_version"] = response.json()["data"]["row_version"]
-        monkeypatch.delenv("CPM_SECRET_KEY")
+        monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY")
         get_settings.cache_clear()
         response = await client.post("/api/v1/proxies/assign-sequence", json=data)
         assert response.status_code == 409

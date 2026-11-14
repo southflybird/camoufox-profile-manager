@@ -19,8 +19,8 @@ from camoufox_pm.main import app
 @pytest.fixture(autouse=True)
 def isolate_auth(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("CPM_API_KEY", raising=False)
-    monkeypatch.delenv("CPM_SECRET_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_API_KEY", raising=False)
+    monkeypatch.delenv("CPM_CUSTOM_SECRET_KEY", raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -125,7 +125,7 @@ async def test_browser_download_token_requires_admin_session(client, monkeypatch
 
 
 async def test_runtime_routes_use_existing_api_auth_guard(client, monkeypatch):
-    monkeypatch.setenv("CPM_API_KEY", "test-runtime-key")
+    monkeypatch.setenv("CPM_CUSTOM_API_KEY", "test-runtime-key")
     get_settings.cache_clear()
     installer = Mock()
     monkeypatch.setattr(runtime, "browser_installer", installer)

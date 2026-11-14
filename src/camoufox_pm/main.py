@@ -176,7 +176,7 @@ app.add_middleware(LoggingMiddleware)
 app.add_middleware(AccessMiddleware)
 app.add_middleware(MaintenanceMiddleware, gate=maintenance_gate)
 
-# Session-or-API-key guard; a no-op when neither users nor CPM_API_KEY exist.
+# Session-or-API-key guard; a no-op when neither users nor CPM_CUSTOM_API_KEY exist.
 protected = [Depends(require_auth)]
 # /api/v1 is the canonical prefix. The same routers are also served under the
 # pre-0.2 unversioned /api so existing scripts keep working; those copies are
@@ -294,7 +294,7 @@ async def health_check():
 def _webui_dir() -> Path | None:
     """Locate the bundled static web UI, if present.
 
-    Looks at ``CPM_WEBUI_DIR``, then the package's ``webui/`` directory (populated
+    Looks at ``CPM_CUSTOM_WEBUI_DIR``, then the package's ``webui/`` directory (populated
     by ``scripts/build_webui.py``), then ``web/out`` for running from source.
     """
     candidates = [
