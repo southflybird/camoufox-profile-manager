@@ -46,6 +46,8 @@ dependencies = [
     # Public trace events own orphaned SOCKS streams; upgrade with lifecycle tests.
     "httpcore==1.0.9",
     "packaging>=24.1",
+    # Windows has no system IANA timezone database; bundle it for proxy checks.
+    "tzdata>=2026.1; sys_platform == 'win32'",
     "async-timeout>=5,<6 ; python_full_version < '3.11'",
 ]
 
