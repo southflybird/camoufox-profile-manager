@@ -89,13 +89,13 @@ def test_corrupted_persistent_key_fails_without_overwriting_it(tmp_path):
 @pytest.mark.parametrize(
     ("platform", "environment", "suffix"),
     [
-        ("darwin", {}, "Library/Application Support/Camoufox Profile Manager"),
+        ("darwin", {}, "Library/Application Support/CPM Custom"),
         (
             "win32",
             {"LOCALAPPDATA": "configured-local"},
-            "configured-local/Camoufox Profile Manager",
+            "configured-local/CPM Custom",
         ),
-        ("linux", {"XDG_DATA_HOME": "configured-xdg"}, "configured-xdg/camoufox-profile-manager"),
+        ("linux", {"XDG_DATA_HOME": "configured-xdg"}, "configured-xdg/cpm-custom"),
     ],
 )
 def test_platform_data_directory_does_not_depend_on_working_directory(

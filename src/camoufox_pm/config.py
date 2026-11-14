@@ -9,6 +9,8 @@ from typing import Annotated
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from camoufox_pm.distribution import APP_NAME, APP_SLUG
+
 
 class Settings(BaseSettings):
     """Runtime configuration. Values come from the environment or a ``.env`` file."""
@@ -68,16 +70,12 @@ def get_settings() -> Settings:
 def desktop_data_dir() -> Path:
     """A stable, writable location; never relative to the app bundle or cwd."""
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Camoufox Profile Manager"
+        return Path.home() / "Library" / "Application Support" / APP_NAME
     if sys.platform == "win32":
         return (
-            Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
-            / "Camoufox Profile Manager"
+            Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / APP_NAME
         )
-    return (
-        Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))
-        / "camoufox-profile-manager"
-    )
+    return Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))) / APP_SLUG
 
 
 def bootstrap_desktop() -> None:

@@ -20,7 +20,7 @@ def run(installer: Path) -> None:
         raise RuntimeError("Windows only")
     import winreg
 
-    key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM"
+    key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom"
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key):
             raise RuntimeError("Use a disposable account without an existing manager installation")

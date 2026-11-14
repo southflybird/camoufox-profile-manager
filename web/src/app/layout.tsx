@@ -4,11 +4,12 @@ import { AppShell } from '@/components/app-shell'
 import { I18nProvider } from '@/components/i18n-provider'
 import { LoginGate } from '@/components/login-gate'
 import { ToastProvider } from '@/components/toast'
+import { APP_NAME } from '@/lib/distribution'
 import './fonts.css'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Camoufox Profile Manager',
+  title: APP_NAME,
   description: 'Antidetect browser profile management',
 }
 

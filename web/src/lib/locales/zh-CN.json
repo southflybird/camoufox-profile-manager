@@ -1196,5 +1196,9 @@
   "GitHub's download request limit was reached. Wait and retry, or use a GitHub token below.": "已达到 GitHub 下载请求上限。请稍后重试，或在下方提供 GitHub 令牌。",
   "GitHub rejected the token. Check that it is valid and has not expired.": "GitHub 拒绝了此令牌。请检查令牌是否有效且尚未过期。",
   "GitHub refused the request. Check token access or wait before retrying.": "GitHub 拒绝了请求。请检查令牌访问权限，或稍后重试。",
-  "Could not read browser releases from GitHub. Check your connection and retry.": "无法从 GitHub 获取浏览器版本信息。请检查网络连接后重试。"
+  "Could not read browser releases from GitHub. Check your connection and retry.": "无法从 GitHub 获取浏览器版本信息。请检查网络连接后重试。",
+  "CPM Custom uses manual updates from its own release page. Keep a complete data backup before updating.": "CPM Custom 使用定制发布页中的安装包手动更新。更新前请完整备份数据。",
+  "Custom release downloads": "下载定制版本",
+  "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "降级需要配套的旧程序和完整数据备份。仅有配置归档无法完整回退。",
+  "No custom release has been published yet.": "尚未发布定制版本。"
 }

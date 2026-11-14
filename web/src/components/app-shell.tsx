@@ -9,6 +9,7 @@ import { useI18n } from '@/components/i18n-provider'
 import { LanguageSelector } from '@/components/language-selector'
 import { useAuth } from '@/components/login-gate'
 import { systemAPI } from '@/lib/api'
+import { APP_NAME, APP_VERSION } from '@/lib/distribution'
 
 const NAV = [
   { href: '/', label: 'Profiles', icon: Users },
@@ -87,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           )}
-          <div className="px-4 py-3 font-mono text-[11px] text-ink-faint">{address ?? '—'}</div>
+          <div className="px-4 py-3 font-mono text-[11px] text-ink-faint"><p>{APP_VERSION}</p><p>{address ?? '—'}</p></div>
         </div>
       </aside>
 
@@ -108,7 +109,7 @@ function Wordmark() {
         <rect x="3" y="6.8" width="10" height="2.4" rx="1.2" fill="var(--color-signal)" opacity="0.62" />
         <rect x="5.5" y="11.1" width="5" height="2.4" rx="1.2" fill="var(--color-signal)" opacity="0.32" />
       </svg>
-      <span className="text-[13px] font-semibold tracking-tight">Camoufox</span>
+      <span className="text-[13px] font-semibold tracking-tight">{APP_NAME}</span>
     </>
   )
 }

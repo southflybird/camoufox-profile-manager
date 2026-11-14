@@ -3,9 +3,9 @@ Unicode True
 SetDateSave on
 !include "MUI2.nsh"
 !include "${UNINSTALL_MANIFEST}"
-Name "Camoufox Profile Manager"
+Name "CPM Custom"
 OutFile "${OUTPUT}"
-InstallDir "$LOCALAPPDATA\Programs\Camoufox Profile Manager"
+InstallDir "$LOCALAPPDATA\Programs\CPM Custom"
 RequestExecutionLevel user
 !define MUI_ABORTWARNING
 !define MUI_ICON "${ICON}"
@@ -73,15 +73,15 @@ Section "Install"
     SetOutPath "$INSTDIR"
     File /r "${BUNDLE}\*"
     WriteUninstaller "$INSTDIR\Uninstall.exe"
-    CreateDirectory "$SMPROGRAMS\Camoufox Profile Manager"
-    CreateShortcut "$SMPROGRAMS\Camoufox Profile Manager\Camoufox Profile Manager.lnk" "$INSTDIR\camoufox-pm.exe"
-    CreateShortcut "$SMPROGRAMS\Camoufox Profile Manager\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "DisplayName" "Camoufox Profile Manager"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "UninstallString" '"$INSTDIR\Uninstall.exe"'
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "InstallLocation" "$INSTDIR"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "DisplayIcon" "$INSTDIR\camoufox-pm.exe,0"
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "NoModify" 1
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM" "NoRepair" 1
+    CreateDirectory "$SMPROGRAMS\CPM Custom"
+    CreateShortcut "$SMPROGRAMS\CPM Custom\CPM Custom.lnk" "$INSTDIR\camoufox-pm.exe"
+    CreateShortcut "$SMPROGRAMS\CPM Custom\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "DisplayName" "CPM Custom"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "InstallLocation" "$INSTDIR"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "DisplayIcon" "$INSTDIR\camoufox-pm.exe,0"
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "NoModify" 1
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom" "NoRepair" 1
 SectionEnd
 !macro RemoveOwnedFile PATH
     ClearErrors
@@ -94,11 +94,11 @@ SectionEnd
 Section "Uninstall"
     !insertmacro ValidateBundlePaths "un."
     !insertmacro RemoveBundleFiles
-    Delete "$SMPROGRAMS\Camoufox Profile Manager\Camoufox Profile Manager.lnk"
-    Delete "$SMPROGRAMS\Camoufox Profile Manager\Uninstall.lnk"
-    RMDir "$SMPROGRAMS\Camoufox Profile Manager"
+    Delete "$SMPROGRAMS\CPM Custom\CPM Custom.lnk"
+    Delete "$SMPROGRAMS\CPM Custom\Uninstall.lnk"
+    RMDir "$SMPROGRAMS\CPM Custom"
     Delete "$INSTDIR\Uninstall.exe"
     RMDir "$INSTDIR"
-    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CamoufoxPM"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\CPMCustom"
     ; Keep profiles, encryption key and backups in the separate user data directory.
 SectionEnd

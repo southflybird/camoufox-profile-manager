@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 from camoufox_pm.api.access import require_admin
 from camoufox_pm.api.models.system import ApiResponse
 from camoufox_pm.core.browser_install import BrowserStatus, browser_installer
-from camoufox_pm.core.updates import UpdateStatus, check_update
+from camoufox_pm.core.custom_updates import UpdateStatus, check_update
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 

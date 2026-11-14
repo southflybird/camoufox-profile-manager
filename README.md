@@ -1,3 +1,17 @@
+# CPM Custom — southflybird
+
+基于官方 **v0.7.0** 的 Windows 定制版本：**0.7.0+southflybird.1**。
+
+- 配置列表每 10 秒自动刷新，恢复窗口焦点立即刷新，保留筛选、分页、勾选和编辑状态。
+- 使用独立的 **CPM Custom** 数据目录、Windows 安装目录及更新渠道。
+- [开发、升级与数据恢复指南](docs/custom-maintenance.zh-CN.md)
+- [定制版本下载](https://github.com/southflybird/camoufox-profile-manager/releases)
+- [官方上游](https://github.com/polyackiy/camoufox-profile-manager) · 保留原项目 MIT 许可和贡献者署名。
+
+本分支的运行、更新与数据目录以定制指南为准；以下保留上游说明供参考。
+
+---
+
 # Camoufox Profile Manager
 
 [![CI](https://github.com/polyackiy/camoufox-profile-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/polyackiy/camoufox-profile-manager/actions/workflows/ci.yml)

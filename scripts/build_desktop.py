@@ -71,7 +71,7 @@ def package_desktop() -> list[Path]:
         )
         manifest = ROOT / "build" / "windows-uninstall.nsh"
         write_uninstall_manifest(DIST / "camoufox-pm", manifest)
-        output = DIST / f"camoufox-pm-windows-{arch}-setup.exe"
+        output = DIST / f"cpm-custom-windows-{arch}-setup.exe"
         subprocess.run([makensis, f"/DBUNDLE={DIST / 'camoufox-pm'}", f"/DOUTPUT={output}", f"/DWEBVIEW2={bootstrapper}", f"/DUNINSTALL_MANIFEST={manifest}", f"/DICON={ROOT / 'packaging' / 'camoufox-pm.ico'}", str(ROOT / "packaging" / "installer.nsi")], check=True)
         return [output]
     if not sys.platform.startswith("linux"):

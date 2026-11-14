@@ -1331,5 +1331,9 @@
   "GitHub's download request limit was reached. Wait and retry, or use a GitHub token below.": "Достигнут лимит запросов к загрузкам GitHub. Подождите и повторите попытку или укажите токен GitHub ниже.",
   "GitHub rejected the token. Check that it is valid and has not expired.": "GitHub отклонил токен. Проверьте, что он действителен и срок его действия не истёк.",
   "GitHub refused the request. Check token access or wait before retrying.": "GitHub отклонил запрос. Проверьте права токена или подождите перед повторной попыткой.",
-  "Could not read browser releases from GitHub. Check your connection and retry.": "Не удалось получить список выпусков браузера с GitHub. Проверьте подключение и повторите попытку."
+  "Could not read browser releases from GitHub. Check your connection and retry.": "Не удалось получить список выпусков браузера с GitHub. Проверьте подключение и повторите попытку.",
+  "CPM Custom uses manual updates from its own release page. Keep a complete data backup before updating.": "CPM Custom обновляется вручную со своей страницы выпусков. Перед обновлением сохраните полную резервную копию данных.",
+  "Custom release downloads": "Скачать пользовательскую сборку",
+  "Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.": "Для отката нужны соответствующая версия приложения и полная копия данных. Архивов профилей недостаточно.",
+  "No custom release has been published yet.": "Пользовательские выпуски пока не опубликованы."
 }

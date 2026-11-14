@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Archive, Download, ExternalLink, LoaderCircle, RotateCcw, Trash2 } from 'lucide-react'
 import { useI18n } from '@/components/i18n-provider'
 import { Modal } from '@/components/modal'
-import { VerifiedUpdateSettings } from '@/components/verified-update-settings'
+import { CUSTOM_RELEASES, isReleaseLink } from '@/lib/distribution'
 import { useToast } from '@/components/toast'
 import { recoveryAPI, systemAPI, type AppUpdate, type BackupInfo } from '@/lib/api'
 
@@ -42,6 +42,8 @@ export function UpdateSettings() {
   return <section aria-labelledby="updates-title">
     <h2 id="updates-title" className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">{t('App updates')}</h2>
     <div className="panel p-4">
+      <p className="mb-3 text-ink-dim">{t('CPM Custom uses manual updates from its own release page. Keep a complete data backup before updating.')}</p>
+      <a className="btn btn-default mb-3" href={CUSTOM_RELEASES} target="_blank" rel="noopener noreferrer">{t('Custom release downloads')}<ExternalLink size={12} aria-hidden="true" /></a>
       <p className="font-medium">{t('Check for a new desktop release')}</p>
       <p className="mt-1 text-ink-dim">{t('Close all running profiles before updating. We create a backup of every profile before making the release download available. Install the downloaded release to update the app.')}</p>
       <label className="mt-3 flex min-h-11 items-center gap-2 text-ink-dim"><input type="checkbox" checked={preview} disabled={checking || preparing} onChange={event => { setPreview(event.target.checked); setUpdate(null); setPrepared(null); setError(null) }} />{t('Include preview releases (opt-in)')}</label>
@@ -59,19 +61,10 @@ export function UpdateSettings() {
       </div>}
       <details className="mt-4 border-t border-line pt-3">
         <summary className="cursor-pointer font-medium">{t('Update recovery')}</summary>
-        <p className="mt-2 text-ink-dim">{t('Verified updates create a complete recovery point. Profile backups cover individual profiles; keep your existing data folder when using a manual installer.')}</p>
-        <VerifiedUpdateSettings preview={preview} />
+        <p className="mt-2 text-ink-dim">{t('Downgrading requires the matching application and complete data backup. Profile archives alone are not a complete rollback.')}</p>
       </details>
     </div>
   </section>
-}
-
-/** The server verifies the repository; the UI also rejects non-release and unsafe links. */
-function isReleaseLink(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'https:' && parsed.hostname === 'github.com' && /^\/polyackiy\/camoufox-profile-manager\/releases\/tag\/[^/]+\/?$/.test(parsed.pathname) && !parsed.username && !parsed.password
-  } catch { return false }
 }
 
 export function BackupSettings() {

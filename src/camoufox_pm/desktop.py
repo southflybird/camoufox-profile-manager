@@ -12,6 +12,8 @@ from pathlib import Path
 
 import uvicorn
 
+from camoufox_pm.distribution import APP_NAME
+
 
 class AlreadyRunningError(RuntimeError):
     """The same desktop data directory is already open in another process."""
@@ -79,9 +81,7 @@ def _stop_server(server: uvicorn.Server, thread: threading.Thread) -> bool:
     return not thread.is_alive() and not server.force_exit
 
 
-def run_desktop(
-    host: str = "127.0.0.1", port: int = 0, title: str = "Camoufox Profile Manager"
-) -> None:
+def run_desktop(host: str = "127.0.0.1", port: int = 0, title: str = APP_NAME) -> None:
     """Serve on a reserved socket and stop browsers/server when the window closes."""
     try:
         import webview
