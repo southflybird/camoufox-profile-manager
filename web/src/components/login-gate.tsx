@@ -54,9 +54,12 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
   }, [refresh])
 
   useEffect(() => {
-    // A resource-level 403 does not invalidate a valid session. Recheck it
-    // without unmounting the app and restarting the requests that were denied.
-    const denied = () => { void refresh() }
+    // Polling failures revalidate without restarting the same denied reads.
+    // Rejected actions retain the upstream reset of protected dialogs/queues.
+    const denied = (event: Event) => {
+      if (!(event as CustomEvent<{ revalidateOnly?: boolean }>).detail?.revalidateOnly) setSession(null)
+      void refresh()
+    }
     window.addEventListener('camoufox-access-denied', denied)
     return () => window.removeEventListener('camoufox-access-denied', denied)
   }, [refresh])

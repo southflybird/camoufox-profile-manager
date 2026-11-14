@@ -133,6 +133,6 @@ python -m uv run --no-sync camoufox-pm --desktop update-recovery restore --check
 
 如果环境中设置了 `CPM_API_KEY`，而定制数据目录尚无账户，首次打开会显示密钥验证页。输入既有密钥后进入完整界面；不会关闭密钥保护或复制官方账户数据。未设置密钥且没有账户时仍直接进入应用。
 
-r1 在此场景错误地进入主页并循环触发 401 和登录探测，导致页面闪烁。r2 同时修复资源级 403 导致的反复挂载，增加存储受限时的内存凭据回退。
+r1 在此场景错误地进入主页并循环触发 401 和登录探测，导致页面闪烁。r2 同时修复后台读取的 403 导致的反复挂载，增加存储受限时的内存凭据回退。
 
 回归验证：`python -m uv run --no-sync python scripts/smoke_custom_ui.py --api-key --blocked-storage`；验证冻结程序时追加 `--packaged dist/camoufox-pm/camoufox-pm.exe`。

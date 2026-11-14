@@ -188,18 +188,6 @@ export default function ProfilesPage() {
   }, [loadProfiles, loadRunning, refreshProfiles, refreshRunning])
 
   useEffect(() => {
-    const recheckGrants = (event: Event) => {
-      const path = (event as CustomEvent<{ path?: string }>).detail?.path
-      // Re-read visibility after a profile action loses its grant. Denials
-      // from the collection read or optional group context must not feed back
-      // into another read, and the page itself must remain mounted.
-      if (path && /^\/api(?:\/v1)?\/profiles\/[^/?]+(?:\/|$)/.test(path)) void loadProfiles()
-    }
-    window.addEventListener('camoufox-access-denied', recheckGrants)
-    return () => window.removeEventListener('camoufox-access-denied', recheckGrants)
-  }, [loadProfiles])
-
-  useEffect(() => {
     // Close on any click that is not on a trigger or inside an open menu.
     // Relying on stopPropagation in the trigger's React handler is not enough:
     // React delegates to its root container, so the document listener could

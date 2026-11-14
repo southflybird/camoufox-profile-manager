@@ -187,11 +187,11 @@ export function authHeaders(): Record<string, string> {
   return key ? { 'X-API-Key': key } : {}
 }
 
-export function notifyAccessDenied(status: number, path?: string): void {
-  if ((status === 401 || status === 403) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('camoufox-access-denied', { detail: { path } }))
+export function notifyAccessDenied(status: number, path?: string, revalidateOnly = false): void {
+  if ((status === 401 || status === 403) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('camoufox-access-denied', { detail: { path, revalidateOnly } }))
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit, revalidateOnly = false): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     // Spread options first: putting it last let a caller's `headers` replace the
     // merged object, silently dropping Content-Type and the API key.
@@ -203,7 +203,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!response.ok) {
-    if (!path.includes('/auth/')) notifyAccessDenied(response.status, path)
+    if (!path.includes('/auth/')) notifyAccessDenied(response.status, path, revalidateOnly)
     let detail = response.statusText
     let code: string | undefined
     try {
@@ -372,7 +372,7 @@ export const profilesAPI = {
     return body.data
   },
   getProfiles(params: Record<string, unknown> = {}, signal?: AbortSignal): Promise<ProfilesResponse> {
-    return request<ProfilesResponse>(`${API_PREFIX}/profiles${toQuery(params)}`, { signal })
+    return request<ProfilesResponse>(`${API_PREFIX}/profiles${toQuery(params)}`, { signal }, true)
   },
 
   getProfile(id: string): Promise<Profile> {
@@ -511,7 +511,7 @@ export interface ImportResult {
 
 export const browsersAPI = {
   active(signal?: AbortSignal): Promise<{ active_browsers: { profile_id: string }[]; count: number }> {
-    return request(`${API_PREFIX}/browsers/active`, { signal })
+    return request(`${API_PREFIX}/browsers/active`, { signal }, true)
   },
 
   closeAll(): Promise<{ closed_count: number; message: string }> {
@@ -521,7 +521,7 @@ export const browsersAPI = {
 
 export const groupsAPI = {
   list(signal?: AbortSignal): Promise<{ groups: Group[]; total: number }> {
-    return request(`${API_PREFIX}/groups`, { signal })
+    return request(`${API_PREFIX}/groups`, { signal }, true)
   },
 
   create(data: { name: string; description?: string }): Promise<Group> {
