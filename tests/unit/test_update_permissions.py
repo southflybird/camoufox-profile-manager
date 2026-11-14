@@ -64,6 +64,16 @@ def test_private_storage_creation(tmp_path):
         create_private_file(path)
 
 
+def test_existing_private_file_reports_exclusive_creation_without_changing_bytes(tmp_path):
+    path = tmp_path / "owned"
+    with os.fdopen(create_private_file(path), "wb") as handle:
+        handle.write(b"preserve the winning creator's data")
+    with pytest.raises(FileExistsError):
+        create_private_file(path)
+    assert path.read_bytes() == b"preserve the winning creator's data"
+    verify_private_path(path)
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Native Windows token/DACL/inheritance")
 def test_native_windows_acl_and_child_inheritance(tmp_path):
     root = tmp_path / "private-ключ"

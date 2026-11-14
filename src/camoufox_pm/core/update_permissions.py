@@ -450,7 +450,10 @@ class _WindowsSecurity:
         handle = None
         try:
             if directory:
-                self._check(self.kernel.CreateDirectoryW(str(path), ctypes.byref(attributes)))
+                created = self.kernel.CreateDirectoryW(str(path), ctypes.byref(attributes))
+                if not created and ctypes.get_last_error() in {80, 183}:
+                    raise FileExistsError(str(path))
+                self._check(created)
             else:
                 # GENERIC_WRITE, share read/write/delete (ACL inspection), CREATE_NEW.
                 handle = self.kernel.CreateFileW(
@@ -458,6 +461,10 @@ class _WindowsSecurity:
                 )
                 if handle == ctypes.c_void_p(-1).value:
                     handle = None
+                    if ctypes.get_last_error() in {80, 183}:
+                        # Match O_EXCL semantics so concurrent gate creators can
+                        # inspect the winner's file instead of failing startup.
+                        raise FileExistsError(str(path))
                     self._check(False)
             _verify_sddl(
                 self.read_sddl(path),
