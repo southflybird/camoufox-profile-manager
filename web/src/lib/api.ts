@@ -364,8 +364,8 @@ export const profilesAPI = {
     const body = await request<{ data: BulkTagsResult }>(`${API_PREFIX}/profiles/tags`, { method: 'POST', body: JSON.stringify({ profiles: profiles.map(({ id, row_version }) => ({ id, row_version })), add, remove }) })
     return body.data
   },
-  getProfiles(params: Record<string, unknown> = {}): Promise<ProfilesResponse> {
-    return request<ProfilesResponse>(`${API_PREFIX}/profiles${toQuery(params)}`)
+  getProfiles(params: Record<string, unknown> = {}, signal?: AbortSignal): Promise<ProfilesResponse> {
+    return request<ProfilesResponse>(`${API_PREFIX}/profiles${toQuery(params)}`, { signal })
   },
 
   getProfile(id: string): Promise<Profile> {
@@ -503,8 +503,8 @@ export interface ImportResult {
 }
 
 export const browsersAPI = {
-  active(): Promise<{ active_browsers: { profile_id: string }[]; count: number }> {
-    return request(`${API_PREFIX}/browsers/active`)
+  active(signal?: AbortSignal): Promise<{ active_browsers: { profile_id: string }[]; count: number }> {
+    return request(`${API_PREFIX}/browsers/active`, { signal })
   },
 
   closeAll(): Promise<{ closed_count: number; message: string }> {
@@ -513,8 +513,8 @@ export const browsersAPI = {
 }
 
 export const groupsAPI = {
-  list(): Promise<{ groups: Group[]; total: number }> {
-    return request(`${API_PREFIX}/groups`)
+  list(signal?: AbortSignal): Promise<{ groups: Group[]; total: number }> {
+    return request(`${API_PREFIX}/groups`, { signal })
   },
 
   create(data: { name: string; description?: string }): Promise<Group> {

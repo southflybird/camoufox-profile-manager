@@ -41,9 +41,11 @@ import { SavedProfileViews } from '@/components/saved-profile-views'
 import { BatchProfileOperations } from '@/components/batch-profile-operations'
 import { MAX_BATCH_SIZE, type BatchTarget } from '@/lib/batch-queue'
 import { DEFAULT_VIEW, profileViewQuery, readProfileView } from '@/lib/profile-views'
+import { LatestRead, startRefreshLoop } from '@/lib/auto-refresh'
 import { useToast } from '@/components/toast'
 import {
   browsersAPI,
+  ApiRequestError,
   browserCloseFailure,
   formatLastUsed,
   formatProxyString,
@@ -59,6 +61,7 @@ import {
 } from '@/lib/api'
 
 type SortKey = 'name' | 'id' | 'group' | 'os' | 'status' | 'last_used'
+type ProfileSnapshot = { profiles: Profile[]; groups: Group[] | null; bindings: ProfileSyncBinding[] | null }
 
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: 'Name' },
@@ -113,65 +116,76 @@ export default function ProfilesPage() {
   const toast = useToast()
   const importRef = useRef<HTMLInputElement>(null)
   const archiveRef = useRef<HTMLInputElement>(null)
+  const profileReads = useRef(new LatestRead<ProfileSnapshot>())
+  const runningReads = useRef(new LatestRead<string[]>())
 
-  const loadProfiles = useCallback(async () => {
-    try {
-      setError(null)
+  const refreshProfiles = useCallback((background: boolean) => profileReads.current.run(background, async signal => {
       // The API paginates; pull every page so sorting and search stay client-side
       // and instant. Guarded so a bad has_next can never spin forever.
       const collected: Profile[] = []
       for (let pageNumber = 1; pageNumber <= 200; pageNumber += 1) {
-        const response = await profilesAPI.getProfiles({ page: pageNumber, per_page: 100 })
+        const response = await profilesAPI.getProfiles({ page: pageNumber, per_page: 100 }, signal)
         collected.push(...response.profiles)
         if (!response.has_next) break
         if (pageNumber === 200) throw new Error('The profile collection is too large to load completely. No partial filter results are shown.')
       }
-      setProfiles(collected)
+      signal.throwIfAborted()
+      let bindings: ProfileSyncBinding[] | null = null
       if (canManageAccess) {
-        try { const result = await profileSyncAPI.list(); if (!Array.isArray(result.profiles)) throw new Error('Invalid sync status'); setSyncBindings(result.profiles) }
-        catch { setSyncBindings(current => current.map(binding => ({ ...binding, phase: 'unknown' }))) }
+        try { const result = await profileSyncAPI.list(signal); if (!Array.isArray(result.profiles)) throw new Error('Invalid sync status'); bindings = result.profiles }
+        catch { /* Keep existing bindings marked unknown if synchronization is unavailable. */ }
       }
-    } catch (err) {
-      setProfiles([])
-      setSelected(new Set())
-      setEditing(null)
-      setFormOpen(false)
-      setBatch(null)
-      setError(String(err instanceof Error ? err.message : err))
-    } finally {
+      signal.throwIfAborted()
+      const groups = await groupsAPI.list(signal).then(result => result.groups).catch(() => null)
+      return { profiles: collected, bindings, groups }
+    }, snapshot => {
+      setProfiles(snapshot.profiles)
+      const ids = new Set(snapshot.profiles.map(profile => profile.id))
+      setSelected(current => new Set([...current].filter(id => ids.has(id))))
+      if (snapshot.groups) setGroups(snapshot.groups)
+      if (canManageAccess) setSyncBindings(current => snapshot.bindings ?? current.map(binding => ({ ...binding, phase: 'unknown' })))
+      setError(null)
       setLoading(false)
-    }
-  }, [canManageAccess])
+    }, err => {
+      // Access loss must still clear protected data. A transient background
+      // failure must not erase rows, selections or an in-progress edit.
+      const accessLost = err instanceof ApiRequestError && (err.status === 401 || err.status === 403)
+      if (background && !accessLost) return
+      if (accessLost) {
+        setProfiles([])
+        setSelected(new Set())
+        setEditing(null)
+        setFormOpen(false)
+        setBatch(null)
+      }
+      setError(String(err instanceof Error ? err.message : err))
+      setLoading(false)
+    }), [canManageAccess])
+  const loadProfiles = useCallback(async () => { await refreshProfiles(false) }, [refreshProfiles])
 
-  const loadRunning = useCallback(async () => {
-    try {
-      const response = await browsersAPI.active()
-      setRunning(new Set(response.active_browsers.map((browser) => browser.profile_id)))
-    } catch {
-      // The poll is best-effort; a transient failure must not surface as an error.
-    }
-  }, [])
-
-  const loadGroups = useCallback(async () => {
-    try {
-      const response = await groupsAPI.list()
-      setGroups(response.groups)
-    } catch {
-      // Groups are optional context for the table and the form.
-    }
-  }, [])
+  const refreshRunning = useCallback((background: boolean) => runningReads.current.run(background,
+    async signal => (await browsersAPI.active(signal)).active_browsers.map(browser => browser.profile_id),
+    ids => setRunning(new Set(ids)),
+    () => { /* Best-effort status polling retains the previous state on failure. */ },
+  ), [])
+  const loadRunning = useCallback(async () => { await refreshRunning(false) }, [refreshRunning])
 
   useEffect(() => {
-    // loadProfiles clears the previous error synchronously before awaiting,
-    // which is the one render the rule objects to and is what makes a reload
-    // stop showing a stale failure.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadProfiles()
-    loadGroups()
-    loadRunning()
-    const timer = setInterval(loadRunning, 5000)
-    return () => clearInterval(timer)
-  }, [loadProfiles, loadGroups, loadRunning])
+    const profiles = profileReads.current
+    const browsers = runningReads.current
+    profiles.resume()
+    browsers.resume()
+    void loadProfiles()
+    void loadRunning()
+    const stopProfiles = startRefreshLoop(() => refreshProfiles(true))
+    const stopBrowsers = startRefreshLoop(() => refreshRunning(true), 5000)
+    return () => {
+      stopProfiles()
+      stopBrowsers()
+      profiles.dispose()
+      browsers.dispose()
+    }
+  }, [loadProfiles, loadRunning, refreshProfiles, refreshRunning])
 
   useEffect(() => {
     // Close on any click that is not on a trigger or inside an open menu.

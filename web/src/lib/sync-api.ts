@@ -13,12 +13,13 @@ export type SyncEnrollment = {
 export type RecoveryPackage = { package: string; secret: string }
 
 /** Sync owner ceremonies deliberately use the session cookie without legacy API keys. */
-export async function syncRequest<T>(path: string, body?: unknown): Promise<T> {
+export async function syncRequest<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/api/v1/sync${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
     redirect: 'error',
+    signal,
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
@@ -103,7 +104,7 @@ export const profileSyncAPI = {
   share: (target_device_id: string, password?: string) => syncRequest<Record<string, unknown>>('/profiles/share', { target_device_id, password }),
   acceptCode: (pack: Record<string, unknown>) => syncRequest<unknown>('/profiles/accept-code', { pack }),
   preserveCopy: (id: string) => syncRequest<{local_id: string; name: string}>(`/profiles/${encodeURIComponent(id)}/preserve-copy`, { acknowledge_fork: true }),
-  list: () => syncRequest<ProfileSyncListing>('/profiles'),
+  list: (signal?: AbortSignal) => syncRequest<ProfileSyncListing>('/profiles', undefined, signal),
   action: (id: string, action: ProfileSyncAction, password?: string) => syncRequest<ProfileSyncBinding>(`/profiles/${encodeURIComponent(id)}/${action}`, { password }),
   import: (profile_id: string, password?: string) => syncRequest<ProfileSyncBinding>('/profiles/import', { profile_id, password }),
 }
