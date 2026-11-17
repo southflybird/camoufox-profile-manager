@@ -333,7 +333,10 @@ class Profile(BaseModel):
         does not inject a manual user-agent or WebGL renderer.
         """
         bs = self.browser_settings
+        from camoufox.addons import DefaultAddons
+
         options: dict[str, Any] = {
+            "exclude_addons": [DefaultAddons.UBO],
             "os": bs.os,
             "locale": ",".join(bs.languages) if bs.languages else "en-US",
             "config": bs.to_camoufox_config(),

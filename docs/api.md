@@ -474,13 +474,29 @@ Backups carry settings, the pinned fingerprint and browser data. Restore creates
 a **new** ID/directory, leaving existing profiles unchanged. Archives contain
 session cookies and decrypted proxy credentials: keep them private. They do not
 include app login users, app settings or schedules. Backup creation returns
-`data.backups` and `data.skipped` (profile ID/reason); live profiles, missing
+`data.backups`, `data.reused` and `data.skipped` (profile ID/reason); live profiles, missing
 directories and unreadable credentials are not reported as successful backups.
-Omit `profile_ids` to back up all profiles, including Trash. The running app
-retries due backups every minute, defaulting to one snapshot per 24 hours and
-seven routine snapshots per profile; `CPM_CUSTOM_BACKUP_INTERVAL_HOURS` and
-`CPM_CUSTOM_BACKUP_RETENTION` configure this. Two latest before-update checkpoints are
-retained separately.
+Omit `profile_ids` to back up non-trashed profiles. Update preparation also covers
+Trash. The running app checks due profiles every minute, with persistent per-profile
+checks at 24-hour intervals by default. Actual retained file content and settings
+are hashed; unchanged backups are reused. Keep two routine versions (manual and
+automatic combined) and one shared before-operation version (update/cookie replace).
+One ZIP can serve both purposes. `CPM_CUSTOM_BACKUP_INTERVAL_HOURS` and
+`CPM_CUSTOM_BACKUP_RETENTION` override routine defaults. Backup lists expose `uses`,
+`retention` and `interval_hours`. Restore remains additive.
+
+uBlock is no longer installed into profiles by default. Explicitly assigned
+extensions continue to work. Native export and backups omit confirmed, formerly
+bundled uBlock storage; unknown/explicit extension data and website storage are kept.
+The browser bundle itself can still contain optional extension resources.
+
+`POST /api/v1/system/backup-cleanup?execute=false` starts an administrator-only
+scan; `execute=true` starts explicit cleanup. Poll `GET` on the same path for
+`state`, `processed`, `candidates`, `estimated_bytes`, `released_bytes`, `skipped`
+and `failed`. Cleanup compacts old local ZIPs, consolidates versions and removes
+confirmed default extension data only from closed, locally owned profiles after
+writing a valid recovery backup. Each archive replacement is atomic; retrying is
+safe. MyDrive encrypted archives are organized separately inside unlocked MyDrive.
 
 Browser status is `{installed, version, state, progress, message, error}`, where
 `state` is `idle`, `downloading`, `ready` or `error`, and progress is 0–100 or null.

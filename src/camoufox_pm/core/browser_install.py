@@ -5,7 +5,6 @@ upstream package owns release selection and layout; no browser files are patched
 """
 
 import hashlib
-import json
 import re
 import sys
 import threading
@@ -131,8 +130,7 @@ def _compatible_version(build: Path) -> str | None:
 
 
 def _complete_bundle(build: Path) -> bool:
-    """Check the executable and add-ons from this version's own archive."""
-    from camoufox.addons import DefaultAddons, get_addon_path
+    """Check the executable; bundled optional extensions are not required."""
     from camoufox.pkgman import launch_path
 
     try:
@@ -140,13 +138,6 @@ def _complete_bundle(build: Path) -> bool:
         executable = Path(launch_path(build))
         if not executable.is_file() or not executable.resolve(strict=True).is_relative_to(root):
             return False
-        for addon in DefaultAddons:
-            path = Path(get_addon_path(addon.name, executable)) / "manifest.json"
-            if not path.is_file() or not path.resolve(strict=True).is_relative_to(root):
-                return False
-            manifest = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(manifest, dict) or manifest.get("manifest_version") not in (2, 3):
-                return False
         return True
     except (OSError, ValueError, RuntimeError):
         return False

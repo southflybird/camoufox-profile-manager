@@ -24,6 +24,26 @@ async def create(client):
     return result.json()
 
 
+async def test_backup_reuse_and_explicit_cleanup_api(recovery_client):
+    import asyncio
+
+    client = recovery_client
+    profile = await create(client)
+    Path(profile["storage_path"], "cookies.sqlite").write_bytes(b"session")
+    first = (await client.post("/api/v1/system/backups", json={})).json()["data"]
+    again = (await client.post("/api/v1/system/backups", json={})).json()["data"]
+    assert not again["backups"]
+    assert again["reused"][0]["id"] == first["backups"][0]["id"]
+    assert (await client.post("/api/v1/system/backup-cleanup")).status_code == 200
+    for _ in range(100):
+        report = (await client.get("/api/v1/system/backup-cleanup")).json()["data"]
+        if report["state"] != "running":
+            break
+        await asyncio.sleep(0.01)
+    assert report["state"] == "complete" and not report["failed"]
+    assert report["released_bytes"] == 0
+
+
 @pytest.mark.asyncio
 async def test_trash_restore_and_explicit_permanent_delete(recovery_client):
     client = recovery_client
@@ -199,7 +219,7 @@ async def test_due_backup_holds_launch_admission_then_stays_fresh(recovery_clien
         result = await task
     assert len(result["backups"]) == 1 and result["skipped"] == []
     assert await manager.storage.get_lease(profile["id"]) == (None, None)
-    assert await backup.create_due_backups() == {"backups": [], "skipped": []}
+    assert await backup.create_due_backups() == {"backups": [], "reused": [], "skipped": []}
     accepted = await client.post(f"/api/v1/profiles/{profile['id']}/launch", json={})
     assert accepted.status_code == 200
     launch.assert_awaited_once()

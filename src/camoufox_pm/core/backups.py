@@ -4,13 +4,14 @@ Each archive carries a profile record, pinned identity, decrypted proxy credenti
 and browser data (without disposable caches). Import re-encrypts credentials with
 the current installation key; recovery does not require the old key. Users, login
 sessions, schedules and application settings are outside this per-profile scope.
-Trash has no automatic expiry. Routine retention is independent of the newest two
-before-update checkpoints per profile. Restore always creates a fresh profile.
+Trash has no automatic expiry. Routine retention is independent of the newest
+before-operation checkpoint per profile. Restore always creates a fresh profile.
 """
 
 import asyncio
 import json
 import uuid
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,18 +19,41 @@ from pathlib import Path
 from loguru import logger
 
 from . import profile_archive
+from .browser_data_policy import archive_digest
 from .leases import ProfileLocked, lease_expired, make_lease_holder
+from .maintenance import MaintenanceGate
 from .operation_diagnostics import OperationDiagnostic, operation_diagnostic
 from .profile_operations import profile_data_path, profile_operation, run_file_operation
 
 
 class ProfileBackupManager:
-    def __init__(self, manager, retention: int = 7, interval_hours: int = 24):
+    def __init__(self, manager, retention: int = 2, interval_hours: int = 24):
         self.manager = manager
         self.directory = manager.data_dir / "backups"
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.retention = max(1, retention)
         self.interval_hours = max(1, interval_hours)
+        self.cleanup_status = {"state": "idle"}
+        self.cleanup_task = None
+        self.maintenance_gate: MaintenanceGate | None = None
+
+    def _write_json(self, path, record):
+        if path.is_symlink():
+            raise ValueError("Invalid backup metadata path")
+        temporary = path.with_suffix(".pending")
+        if temporary.is_symlink():
+            raise ValueError("Invalid temporary metadata path")
+        temporary.write_text(json.dumps(record), encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+
+    @staticmethod
+    def _uses(record):
+        return record.get("uses") or {
+            "checkpoint" if record["reason"].startswith("before_") else "routine": record[
+                "created_at"
+            ]
+        }
 
     @asynccontextmanager
     async def _exclusive(self):
@@ -80,6 +104,7 @@ class ProfileBackupManager:
                         "created_at": record["created_at"],
                         "reason": record["reason"],
                         "size_bytes": archive.stat().st_size,
+                        "uses": self._uses(record),
                     }
                 )
             except (ValueError, KeyError, TypeError, OSError):
@@ -110,17 +135,29 @@ class ProfileBackupManager:
         zip and metadata have been written; failures preserve older checkpoints.
         """
         async with self._exclusive():
-            profiles = await self.manager.storage.list_profiles({"include_deleted": True})
+            profiles = await self.manager.storage.list_profiles(
+                {"include_deleted": reason == "before_update" or profile_ids is not None}
+            )
             if profile_ids is not None:
                 requested = set(profile_ids)
                 profiles = [profile for profile in profiles if profile.id in requested]
                 missing = requested - {profile.id for profile in profiles}
             else:
                 missing = set()
-            latest = self.list_backups()
+            checks_path = self.directory / "checks.state"
+            if checks_path.is_symlink():
+                raise ValueError("Invalid backup checks path")
+            try:
+                checks = json.loads(checks_path.read_text(encoding="utf-8"))
+                if not isinstance(checks, dict):
+                    checks = {}
+            except (OSError, ValueError):
+                checks = {}
             cutoff = datetime.now() - timedelta(hours=self.interval_hours)
+            backed_up = {item["profile_id"] for item in self.list_backups()}
             result = {
                 "backups": [],
+                "reused": [],
                 "skipped": [
                     {
                         "profile_id": item,
@@ -137,15 +174,21 @@ class ProfileBackupManager:
                 ],
             }
             for profile in profiles:
-                if due_only and any(
-                    item["profile_id"] == profile.id
-                    and datetime.fromisoformat(item["created_at"]) > cutoff
-                    for item in latest
+                checked = checks.get(profile.id)
+                if (
+                    due_only
+                    and profile.id in backed_up
+                    and isinstance(checked, str)
+                    and checked > cutoff.isoformat()
                 ):
                     continue
                 try:
                     backup = await self._create_one(profile.id, reason)
-                    result["backups"].append(backup)
+                    reused = backup.pop("reused", False)
+                    result["reused" if reused else "backups"].append(backup)
+                    if not reason.startswith("before_"):
+                        checks[profile.id] = datetime.now().isoformat()
+                        self._write_json(checks_path, checks)
                 except (ProfileLocked, ValueError, OSError) as exc:
                     result["skipped"].append(
                         {
@@ -173,7 +216,7 @@ class ProfileBackupManager:
         async with self._exclusive():
             return await self._write_locked_profile(profile, reason)
 
-    async def _write_locked_profile(self, profile, reason: str) -> dict:
+    async def _write_locked_profile(self, profile, reason: str, *, prune: bool = True) -> dict:
         profile_id = profile.id
         backup_id = uuid.uuid4().hex
         destination = self._archive_path(backup_id)
@@ -197,6 +240,26 @@ class ProfileBackupManager:
                 profile_archive.export_profile, profile, data, temporary, strict=True
             )
             temporary.chmod(0o600)
+            digest = await run_file_operation(archive_digest, temporary)
+            now = datetime.now().isoformat()
+            purpose = "checkpoint" if reason.startswith("before_") else "routine"
+            for existing in self.list_backups():
+                if existing["profile_id"] != profile_id:
+                    continue
+                previous = self._archive_path(existing["id"])
+                try:
+                    if await run_file_operation(archive_digest, previous) != digest:
+                        continue
+                except (OSError, ValueError, zipfile.BadZipFile):
+                    continue
+                saved = json.loads(previous.with_suffix(".json").read_text(encoding="utf-8"))
+                saved["uses"] = {**self._uses(saved), purpose: now}
+                saved["digest"] = digest
+                self._write_json(previous.with_suffix(".json"), saved)
+                temporary.unlink()
+                if prune:
+                    self._prune(profile_id)
+                return {**existing, "uses": saved["uses"], "reused": True}
             record = {
                 "id": backup_id,
                 "profile_id": profile.id,
@@ -204,12 +267,15 @@ class ProfileBackupManager:
                 "created_at": datetime.now().isoformat(),
                 "reason": reason,
                 "size_bytes": temporary.stat().st_size,
+                "digest": digest,
+                "uses": {purpose: now},
             }
             temporary_metadata.write_text(json.dumps(record), encoding="utf-8")
             temporary_metadata.chmod(0o600)
             temporary.replace(destination)
             temporary_metadata.replace(metadata)
-            self._prune(profile_id)
+            if prune:
+                self._prune(profile_id)
             return record
         except BaseException:
             temporary.unlink(missing_ok=True)
@@ -220,9 +286,17 @@ class ProfileBackupManager:
 
     def _prune(self, profile_id: str):
         items = [item for item in self.list_backups() if item["profile_id"] == profile_id]
-        routine = [item for item in items if item["reason"] != "before_update"]
-        checkpoints = [item for item in items if item["reason"] == "before_update"]
-        for item in routine[self.retention :] + checkpoints[2:]:
+        retained: set[str] = set()
+        for purpose, count in (("routine", self.retention), ("checkpoint", 1)):
+            candidates = sorted(
+                (item for item in items if purpose in item["uses"]),
+                key=lambda item: item["uses"][purpose],
+                reverse=True,
+            )
+            retained.update(item["id"] for item in candidates[:count])
+        for item in items:
+            if item["id"] in retained:
+                continue
             try:
                 self._archive_path(item["id"]).unlink(missing_ok=True)
                 (self.directory / f"{item['id']}.json").unlink(missing_ok=True)

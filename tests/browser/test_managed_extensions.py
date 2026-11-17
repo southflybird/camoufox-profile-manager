@@ -10,6 +10,23 @@ from tests.unit.test_extension_library import xpi
 
 
 @pytest.mark.browser
+async def test_default_profile_does_not_load_ublock(profile_manager, local_sites):
+    profile = await profile_manager.create_profile(
+        "No default extension", generate_fingerprint=False
+    )
+    await profile_manager.launch_browser(profile.id, headless=True, geoip=GEOIP_ADDRESS)
+    try:
+        session = profile_manager.browser_sessions.active_sessions[profile.id]
+        page = await session.camoufox.browser.new_page()
+        await page.goto(local_sites.first)
+        assert await page.title() == "test page"
+    finally:
+        await profile_manager.close_browser(profile.id)
+    prefs = Path(profile.storage_path, "prefs.js").read_text(encoding="utf-8")
+    assert "uBlock0@raymondhill.net" not in prefs
+
+
+@pytest.mark.browser
 @pytest.mark.asyncio
 async def test_managed_extension_load_remove_upgrade_and_archive(
     profile_manager, local_sites, tmp_path

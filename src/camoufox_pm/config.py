@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # its profiles locked to the rest of the fleet.
     lease_ttl: int = 120
     backup_interval_hours: int = Field(default=24, ge=1)
-    backup_retention: int = Field(default=7, ge=1)
+    backup_retention: int = Field(default=2, ge=1)
 
     @field_validator("lease_ttl")
     @classmethod

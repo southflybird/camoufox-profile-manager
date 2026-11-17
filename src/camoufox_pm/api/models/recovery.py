@@ -16,6 +16,7 @@ class BackupInfo(BaseModel):
     created_at: datetime
     reason: str
     size_bytes: int = Field(ge=0)
+    uses: dict[str, str] = Field(default_factory=dict)
 
 
 class BackupSkip(BaseModel):
@@ -26,10 +27,13 @@ class BackupSkip(BaseModel):
 
 class BackupListData(BaseModel):
     backups: list[BackupInfo]
+    retention: int = 2
+    interval_hours: int = 24
 
 
 class BackupRunData(BackupListData):
     skipped: list[BackupSkip]
+    reused: list[BackupInfo] = Field(default_factory=list)
 
 
 class TrashListData(BaseModel):

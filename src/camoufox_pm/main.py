@@ -69,6 +69,7 @@ async def lifespan(app: FastAPI):
     profile_manager = None
     scheduler = None
     backup_task = None
+    backup_manager = None
     sync_task = None
     try:
         with maintenance_gate.operation():
@@ -96,6 +97,7 @@ async def lifespan(app: FastAPI):
                 interval_hours=settings.backup_interval_hours,
             )
             recovery.set_backup_manager(backup_manager)
+            backup_manager.maintenance_gate = maintenance_gate
 
             async def back_up_idle_profiles():
                 while True:
@@ -133,6 +135,10 @@ async def lifespan(app: FastAPI):
                     await backup_task
             if scheduler is not None:
                 await scheduler.stop()
+            if backup_manager is not None and backup_manager.cleanup_task is not None:
+                backup_manager.cleanup_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await backup_manager.cleanup_task
             if profile_manager is not None:
                 # Stop renewal before releasing any of this instance's leases.
                 await profile_manager.browser_sessions.stop_heartbeat()

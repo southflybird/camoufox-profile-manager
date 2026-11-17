@@ -79,7 +79,7 @@ async def prepare_update(channel: Literal["stable", "preview"] = "stable"):
         message="Update prepared.",
         data=UpdatePreparation(
             release_url=update.release_url,
-            backup_count=len(result["backups"]),
+            backup_count=len(result["backups"]) + len(result.get("reused", [])),
             message="Profiles backed up. Close the application before installing the update.",
         ),
     )

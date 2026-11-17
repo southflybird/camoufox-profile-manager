@@ -708,14 +708,28 @@ export interface BackupInfo {
   created_at: string
   reason: string
   size_bytes: number
+  uses?: Record<string, string>
 }
 
 export interface BackupResult {
   backups: BackupInfo[]
+  reused?: BackupInfo[]
   skipped: { profile_id: string; reason: string }[]
 }
 
 export const recoveryAPI = {
+  async backupOverview(): Promise<{ backups: BackupInfo[]; retention: number; interval_hours: number }> {
+    const body = await request<{ data: { backups: BackupInfo[]; retention: number; interval_hours: number } }>(`${API_PREFIX}/system/backups`)
+    return body.data
+  },
+  async cleanup(execute: boolean): Promise<BackupCleanupStatus> {
+    const body = await request<{ data: BackupCleanupStatus }>(`${API_PREFIX}/system/backup-cleanup?execute=${execute}`, { method: 'POST' })
+    return body.data
+  },
+  async cleanupStatus(): Promise<BackupCleanupStatus> {
+    const body = await request<{ data: BackupCleanupStatus }>(`${API_PREFIX}/system/backup-cleanup`)
+    return body.data
+  },
   async trash(): Promise<(Profile & { deleted_at: string })[]> {
     const body = await request<{ data: { profiles: (Profile & { deleted_at: string })[] } }>(`${API_PREFIX}/trash/profiles`)
     return body.data.profiles
@@ -742,6 +756,16 @@ export const recoveryAPI = {
   deleteBackup(id: string): Promise<unknown> {
     return request(`${API_PREFIX}/system/backups/${encodeURIComponent(id)}?confirm=true`, { method: 'DELETE' })
   },
+}
+
+export interface BackupCleanupStatus {
+  state: string
+  processed?: number
+  candidates?: number
+  estimated_bytes?: number
+  released_bytes?: number
+  skipped?: { id: string; reason: string }[]
+  failed?: { id: string; reason: string }[]
 }
 
 /** A fingerprint captured from a real machine, bundled with Camoufox. */

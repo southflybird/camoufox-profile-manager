@@ -1370,5 +1370,14 @@
   "Proxy changed": "Прокси изменён",
   "Proxy changed; the exit will update after the next successful launch.": "Прокси изменён; выходной IP обновится после следующего успешного запуска.",
   "Proxy check results": "Результаты проверки прокси",
-  "Proxy checks do not change the last browser exit.": "Проверки прокси не меняют запись о выходном IP последнего запуска браузера."
+  "Proxy checks do not change the last browser exit.": "Проверки прокси не меняют запись о выходном IP последнего запуска браузера.",
+  "{count} profiles already have an up-to-date backup.": "Актуальная резервная копия уже есть для профилей: {count}.",
+  "Keep {count} routine versions and one before-operation version. Check changed, closed profiles every {hours} hours. Unchanged content is reused.": "Хранятся обычные версии ({count}) и одна версия перед операцией. Изменённые закрытые профили проверяются каждые {hours} ч. Неизменённые копии используются повторно.",
+  "Organize backups and default extension data": "Очистить резервные копии и данные стандартного расширения",
+  "Cleanup: {count} processed; {kb} KB released.": "Обработано: {count}. Освобождено: {kb} КБ.",
+  "{count} cleanup candidates; approximately {kb} KB can be released.": "Найдено для очистки: {count}. Можно освободить примерно {kb} КБ без учёта старых версий.",
+  "This removes confirmed default uBlock data and old backup versions. User-installed extensions and website storage are kept. MyDrive archives must be organized in MyDrive.": "Будут удалены подтверждённые остаточные данные стандартного uBlock и старые версии копий. Пользовательские расширения и данные сайтов сохраняются. Архивы MyDrive очищаются в MyDrive.",
+  "Run cleanup": "Выполнить очистку",
+  "Before operation": "Перед операцией",
+  "Routine backup": "Обычная резервная копия"
 }

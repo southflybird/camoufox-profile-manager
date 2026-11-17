@@ -154,16 +154,13 @@ async def test_retention_keeps_update_checkpoints_separate_and_backs_up_trash(pr
         await backups.create_backups(reason="before_update")
     for _ in range(2):
         await backups.create_backups()
-    assert sorted(item["reason"] for item in backups.list_backups()) == [
-        "before_update",
-        "before_update",
-        "manual",
-    ]
-    assert (await backups.create_due_backups()) == {"backups": [], "skipped": []}
+    assert len(backups.list_backups()) == 1
+    assert set(backups.list_backups()[0]["uses"]) == {"routine", "checkpoint"}
+    assert (await backups.create_due_backups()) == {"backups": [], "reused": [], "skipped": []}
     await profile_manager.delete_profile(profile.id)
     result = await backups.create_backups(reason="before_update")
-    assert result["backups"][0]["profile_id"] == profile.id
-    restored = await backups.restore_backup(result["backups"][0]["id"])
+    assert result["reused"][0]["profile_id"] == profile.id
+    restored = await backups.restore_backup(result["reused"][0]["id"])
     assert restored.deleted_at is None
 
 
@@ -191,7 +188,10 @@ async def test_backup_paths_and_symbolic_links_cannot_escape_storage(profile_man
         await backups.restore_backup("../../some-file")
     secret = tmp_path / "outside"
     secret.write_text("private")
-    (path / "secret").symlink_to(secret)
+    try:
+        (path / "secret").symlink_to(secret)
+    except OSError:
+        pytest.skip("Creating symlinks requires platform privileges")
     result = await backups.create_backups()
     assert result["skipped"] and backups.list_backups() == []
     assert secret.read_text() == "private"
@@ -202,6 +202,7 @@ async def test_backup_delete_preserves_profiles_and_serializes_with_restore(prof
     profile, path = await seeded(profile_manager)
     backups = ProfileBackupManager(profile_manager)
     first = (await backups.create_backups())["backups"][0]
+    (path / "cookies.sqlite").write_bytes(b"identity-v2")
     second = (await backups.create_backups())["backups"][0]
     async with backups._exclusive():
         with pytest.raises(ProfileLocked):
@@ -211,7 +212,7 @@ async def test_backup_delete_preserves_profiles_and_serializes_with_restore(prof
     assert not (backups.directory / f"{first['id']}.zip").exists()
     assert not (backups.directory / f"{first['id']}.json").exists()
     assert [item["id"] for item in backups.list_backups()] == [second["id"]]
-    assert (path / "cookies.sqlite").read_bytes() == b"identity"
+    assert (path / "cookies.sqlite").read_bytes() == b"identity-v2"
     assert await profile_manager.storage.get_profile(profile.id) is not None
     with pytest.raises(FileNotFoundError):
         await backups.delete_backup(first["id"])
@@ -229,7 +230,10 @@ async def test_backup_delete_rejects_traversal_and_symlinks(profile_manager, tmp
     outside.write_bytes(b"private")
     link = backups.directory / (backup_id + suffix)
     link.unlink()
-    link.symlink_to(outside)
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("Creating symlinks requires platform privileges")
     with pytest.raises(ValueError):
         await backups.delete_backup(backup_id)
     assert outside.read_bytes() == b"private"

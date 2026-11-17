@@ -6,7 +6,7 @@ import { useI18n } from '@/components/i18n-provider'
 import { Modal } from '@/components/modal'
 import { CUSTOM_RELEASES, isReleaseLink } from '@/lib/distribution'
 import { useToast } from '@/components/toast'
-import { recoveryAPI, systemAPI, type AppUpdate, type BackupInfo } from '@/lib/api'
+import { recoveryAPI, systemAPI, type AppUpdate, type BackupInfo, type BackupCleanupStatus } from '@/lib/api'
 
 function message(error: unknown): string { return error instanceof Error ? error.message : String(error) }
 
@@ -76,9 +76,12 @@ export function BackupSettings() {
   const [result, setResult] = useState<string | null>(null)
   const [restore, setRestore] = useState<BackupInfo | null>(null)
   const [deleting, setDeleting] = useState<BackupInfo | null>(null)
+  const [policy, setPolicy] = useState({ retention: 2, interval_hours: 24 })
+  const [cleanup, setCleanup] = useState<BackupCleanupStatus | null>(null)
+  const [cleanupPreview, setCleanupPreview] = useState(false)
   const toast = useToast()
   const load = useCallback(async () => {
-    try { setBackups(await recoveryAPI.backups()); setError(null) }
+    try { const data = await recoveryAPI.backupOverview(); setBackups(data.backups); setPolicy({ retention: data.retention ?? 2, interval_hours: data.interval_hours ?? 24 }); setError(null) }
     catch (err) { setError(message(err)) }
     finally { setLoading(false) }
   }, [])
@@ -89,12 +92,27 @@ export function BackupSettings() {
     window.addEventListener('camoufox-backups-changed', load)
     return () => window.removeEventListener('camoufox-backups-changed', load)
   }, [load])
+  useEffect(() => {
+    if (cleanup?.state !== 'running') return
+    const timer = window.setInterval(() => {
+      recoveryAPI.cleanupStatus().then(status => {
+        setCleanup(status)
+        if (status.state !== 'running') { setBusy(false); void load() }
+      }).catch(err => { setError(message(err)); setBusy(false); setCleanup(null) })
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [cleanup?.state, load])
+  async function organize(execute: boolean) {
+    setBusy(true); setError(null); setCleanupPreview(!execute)
+    try { setCleanup(await recoveryAPI.cleanup(execute)) }
+    catch (err) { setError(message(err)); setBusy(false) }
+  }
   async function create() {
     setBusy(true); setError(null); setResult(null)
     try {
       const response = await recoveryAPI.createBackup()
       await load()
-      setResult([t('{count} backups created.', { count: response.backups.length }), response.skipped.length ? t('{count} profiles skipped: {details}', { count: response.skipped.length, details: response.skipped.map(item => `${item.profile_id}: ${item.reason}`).join('; ') }) : ''].filter(Boolean).join(' '))
+      setResult([t('{count} backups created.', { count: response.backups.length }), response.reused?.length ? t('{count} profiles already have an up-to-date backup.', { count: response.reused.length }) : '', response.skipped.length ? t('{count} profiles skipped: {details}', { count: response.skipped.length, details: response.skipped.map(item => `${item.profile_id}: ${item.reason}`).join('; ') }) : ''].filter(Boolean).join(' '))
     } catch (err) { setError(message(err)) }
     finally { setBusy(false) }
   }
@@ -126,16 +144,23 @@ export function BackupSettings() {
       <div className="p-4">
         <p className="text-ink-dim">{t('Backups include profile settings and browser data. Close running profiles before backing up; running profiles are skipped. Restoring creates a new profile with a new ID and preserves the current profile.')}</p>
         <p className="mt-2 text-ink-dim">{t('Backups are not encrypted. They can contain signed-in sessions and proxy passwords; keep them private.')}</p>
+        <p className="mt-2 text-ink-dim">{t('Keep {count} routine versions and one before-operation version. Check changed, closed profiles every {hours} hours. Unchanged content is reused.', { count: policy.retention, hours: policy.interval_hours })}</p>
         <div className="mt-3 flex gap-2">
           <button className="btn btn-default" disabled={busy || loading} onClick={create}><Archive size={13} aria-hidden="true" />{busy ? t('Working…') : t('Back up profiles')}</button>
           <button className="btn btn-ghost" disabled={busy} onClick={load}>{t('Refresh')}</button>
+          <button className="btn btn-ghost" disabled={busy} onClick={() => organize(false)}>{t('Organize backups and default extension data')}</button>
         </div>
+        {cleanup && <div className="mt-3 text-ink-dim" role="status">
+          <p>{cleanup.state === 'running' ? t('Working…') : t('Cleanup: {count} processed; {kb} KB released.', { count: cleanup.processed ?? 0, kb: Math.round((cleanup.released_bytes ?? 0) / 1024) })}</p>
+          {cleanupPreview && cleanup.state === 'complete' && <><p>{t('{count} cleanup candidates; approximately {kb} KB can be released.', { count: cleanup.candidates ?? 0, kb: Math.round((cleanup.estimated_bytes ?? 0) / 1024) })}</p><p>{t('This removes confirmed default uBlock data and old backup versions. User-installed extensions and website storage are kept. MyDrive archives must be organized in MyDrive.')}</p><button className="btn btn-default mt-2" disabled={busy} onClick={() => organize(true)}>{t('Run cleanup')}</button></>}
+          {[...(cleanup.skipped ?? []), ...(cleanup.failed ?? [])].map((item, index) => <p key={`${item.id}-${index}`}>{item.id}: {item.reason}</p>)}
+        </div>}
         {result && <p className="mt-3 break-words text-ink-dim" role="status">{result}</p>}
         {error && <p className="mt-3 break-words text-danger" role="alert">{t(error)}</p>}
       </div>
       {loading ? <p className="border-t border-line px-4 py-3 text-ink-dim" role="status">{t('Loading backups…')}</p> : backups.length === 0 ? <p className="border-t border-line px-4 py-3 text-ink-dim">{t('No backups yet.')}</p> :
         <ul className="max-h-[360px] divide-y divide-line overflow-y-auto border-t border-line">{backups.map(backup => <li key={backup.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1"><p className="break-words font-medium">{backup.profile_name}</p><p className="text-ink-dim">{new Date(backup.created_at).toLocaleString(locale)} · {Math.max(1, Math.round(backup.size_bytes / 1024))} KB · {t(backup.reason)}</p></div>
+          <div className="min-w-0 flex-1"><p className="break-words font-medium">{backup.profile_name}</p><p className="text-ink-dim">{new Date(backup.created_at).toLocaleString(locale)} · {Math.max(1, Math.round(backup.size_bytes / 1024))} KB · {backup.uses ? Object.keys(backup.uses).map(use => t(use === 'checkpoint' ? 'Before operation' : 'Routine backup')).join(' · ') : t(backup.reason)}</p></div>
           <button className="btn btn-default shrink-0" disabled={busy} onClick={() => setRestore(backup)} aria-label={t('Restore backup of {name} from {date}', { name: backup.profile_name, date: new Date(backup.created_at).toLocaleString(locale) })}><RotateCcw size={13} aria-hidden="true" />{t('Restore')}</button>
           <button className="btn btn-danger shrink-0" disabled={busy} onClick={() => { setError(null); setDeleting(backup) }} aria-label={t('Delete backup of {name} from {date}', { name: backup.profile_name, date: new Date(backup.created_at).toLocaleString(locale) })}><Trash2 size={13} aria-hidden="true" />{t('Delete')}</button>
         </li>)}</ul>}

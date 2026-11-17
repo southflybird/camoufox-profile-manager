@@ -35,18 +35,17 @@ async def startup_database(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_real_lifespan_automatically_backs_up_active_and_trashed_profiles(startup_database):
+async def test_real_lifespan_backs_up_active_profiles_and_leaves_trash_idle(startup_database):
     tasks_before = asyncio.all_tasks()
     async with main.lifespan(main.app):
         backup_manager = recovery.get_backup_manager()
         manager = dependencies.get_profile_manager()
         scheduler = dependencies.get_scheduler()
         deadline = asyncio.get_running_loop().time() + 3
-        while len(backup_manager.list_backups()) < 2:
+        while len(backup_manager.list_backups()) < 1:
             assert asyncio.get_running_loop().time() < deadline, "startup backups did not finish"
             await asyncio.sleep(0.005)
         assert [item["reason"] for item in backup_manager.list_backups()] == [
-            "automatic",
             "automatic",
         ]
         assert len(await manager.list_trashed_profiles()) == 1

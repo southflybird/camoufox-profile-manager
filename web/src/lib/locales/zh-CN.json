@@ -1235,5 +1235,14 @@
   "Proxy changed": "代理已更改",
   "Proxy changed; the exit will update after the next successful launch.": "代理已更改，将在下次成功启动后更新出口信息。",
   "Proxy check results": "代理检测结果",
-  "Proxy checks do not change the last browser exit.": "代理检测不会更改上次浏览器启动的出口记录。"
+  "Proxy checks do not change the last browser exit.": "代理检测不会更改上次浏览器启动的出口记录。",
+  "{count} profiles already have an up-to-date backup.": "{count} 个配置已有最新备份。",
+  "Keep {count} routine versions and one before-operation version. Check changed, closed profiles every {hours} hours. Unchanged content is reused.": "保留最近 {count} 份日常版本和 1 份操作前版本。每 {hours} 小时检查已关闭且有变化的配置，相同内容复用已有备份。",
+  "Organize backups and default extension data": "整理备份与默认扩展数据",
+  "Cleanup: {count} processed; {kb} KB released.": "已整理 {count} 项，释放 {kb} KB。",
+  "{count} cleanup candidates; approximately {kb} KB can be released.": "发现 {count} 项可整理数据，预计释放约 {kb} KB（不含版本轮换）。",
+  "This removes confirmed default uBlock data and old backup versions. User-installed extensions and website storage are kept. MyDrive archives must be organized in MyDrive.": "将移除确认属于默认 uBlock 的遗留数据及超额旧备份，保留用户安装的扩展和网站存储。MyDrive 封存包请在 MyDrive 中整理。",
+  "Run cleanup": "执行整理",
+  "Before operation": "操作前备份",
+  "Routine backup": "日常备份"
 }

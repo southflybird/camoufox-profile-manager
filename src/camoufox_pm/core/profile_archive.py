@@ -30,6 +30,7 @@ from camoufox_pm import __version__
 from camoufox_pm.core.models import Profile
 
 from .archive_paths import portable_component
+from .browser_data_policy import default_ublock_origins, disposable_ublock_path
 
 FORMAT_VERSION = 1
 MANIFEST_NAME = "manifest.json"
@@ -104,7 +105,12 @@ def _copy_bounded(member: Any, handle: Any, budget: int) -> int:
 
 
 def export_profile(
-    profile: Profile, data_dir: Path, destination: Path, *, strict: bool = False
+    profile: Profile,
+    data_dir: Path,
+    destination: Path,
+    *,
+    strict: bool = False,
+    compact_defaults: bool = True,
 ) -> Path:
     """Write ``profile`` and its browser data into a zip at ``destination``."""
     manifest = {
@@ -118,6 +124,17 @@ def export_profile(
     # import assigns its own.
     record.pop("id", None)
     record.pop("storage_path", None)
+
+    def read_policy_file(name):
+        from .update_permissions import reject_reparse_paths
+
+        path = data_dir / name
+        reject_reparse_paths(path)
+        if path.is_symlink() or path.stat().st_size > _MAX_METADATA_BYTES:
+            raise ValueError("Invalid extension metadata")
+        return path.read_bytes()
+
+    origins = default_ublock_origins(record, read_policy_file) if compact_defaults else ()
 
     written = 0
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
@@ -136,6 +153,8 @@ def export_profile(
                 if not path.is_file():
                     continue
                 if _should_skip(relative):
+                    continue
+                if disposable_ublock_path(relative.as_posix(), origins):
                     continue
                 try:
                     archive.write(path, DATA_PREFIX + relative.as_posix())

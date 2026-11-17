@@ -65,7 +65,8 @@ def prepare_profile_backup(device, profile_id, report=None, *, wait, api_error):
                 return False
             raise
         diagnostics["prepared"] = any(
-            item["profile_id"] == profile_id for item in result["backups"]
+            item["profile_id"] == profile_id
+            for item in result["backups"] + result.get("reused", [])
         )
         if not diagnostics["prepared"]:
             skipped = result.get("skipped")

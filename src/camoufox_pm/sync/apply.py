@@ -205,7 +205,7 @@ def _write_backup(
         ):
             raise ApplyError(_ERROR)
     os.close(create_private_file(backup))
-    profile_archive.export_profile(profile, old_data, backup, strict=True)
+    profile_archive.export_profile(profile, old_data, backup, strict=True, compact_defaults=False)
     with zipfile.ZipFile(backup, "a", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr(
             "sync-apply.json",

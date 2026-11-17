@@ -73,8 +73,8 @@ def test_readiness_inspects_files_without_triggering_download(upstream_cache, mo
         cache.geolocation, "download_mmdb", Mock(side_effect=AssertionError("download"))
     )
     installer = browser_install.BrowserInstaller()
-    assert browser_install.installed_browser() == (False, "135.0-beta.1")
-    assert installer.status().installed is False  # binary alone is insufficient
+    assert browser_install.installed_browser() == (True, "135.0-beta.1")
+    assert installer.status().installed is False  # GeoIP/model resources are still required
     write_resources(cache)
     status = installer.status()
     assert status.installed and status.state == "ready"
@@ -94,14 +94,13 @@ def test_missing_or_unsupported_browser_is_not_reported_ready(upstream_cache, mo
     assert browser_install.installed_browser() == (False, None)
 
 
-def test_invalid_addon_manifest_blocks_launch_without_fetching(upstream_cache):
+def test_optional_addon_manifest_does_not_block_launch(upstream_cache):
     cache = upstream_cache
     write_resources(cache)
     addon = next(iter(cache.addons.DefaultAddons))
     (cache.executable.parent / "addons" / addon.name / "manifest.json").write_text("broken json")
-    assert not browser_install.installed_browser()[0]
-    with pytest.raises(BrowserLaunchError, match="Settings"):
-        browser_install.ensure_browser_ready()
+    assert browser_install.installed_browser()[0]
+    browser_install.ensure_browser_ready()
     cache.pkgman.camoufox_path.assert_not_called()
 
 
@@ -376,6 +375,7 @@ def test_setup_does_not_override_an_explicit_incompatible_choice(upstream_cache,
 
     config = {"pinned": "official/135.0-beta.1", "active_version": "browsers/official/old"}
     monkeypatch.setattr(upstream_cache.multiversion, "load_config", lambda: config)
+    monkeypatch.setattr(upstream_cache.pkgman, "interface_supported", lambda interface: False)
     monkeypatch.setattr(browser_pin, "is_explicit_choice", lambda config: True)
     fetcher = Mock(side_effect=AssertionError("must preserve the user's explicit selection"))
     monkeypatch.setattr(upstream_cache.pkgman.CamoufoxFetcher, "__init__", fetcher)

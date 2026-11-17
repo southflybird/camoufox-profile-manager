@@ -39,6 +39,23 @@ class RestoreBackupRequest(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
 
 
+@router.post("/system/backup-cleanup")
+async def start_backup_cleanup(execute: bool = Query(False)):
+    await require_admin()
+    from camoufox_pm.core.backup_cleanup import start_cleanup
+
+    try:
+        return ApiResponse(data=start_cleanup(get_backup_manager(), execute))
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/system/backup-cleanup")
+async def backup_cleanup_status():
+    await require_admin()
+    return ApiResponse(data=get_backup_manager().cleanup_status)
+
+
 @router.get("/trash/profiles", response_model=ApiResponse[TrashListData], operation_id="list_trash")
 async def list_trash():
     profiles = await get_profile_manager().list_trashed_profiles()
@@ -95,7 +112,11 @@ async def list_backups():
     return ApiResponse(
         success=True,
         message="Profile backups",
-        data={"backups": get_backup_manager().list_backups()},
+        data={
+            "backups": get_backup_manager().list_backups(),
+            "retention": get_backup_manager().retention,
+            "interval_hours": get_backup_manager().interval_hours,
+        },
     )
 
 
