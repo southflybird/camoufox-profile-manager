@@ -4,12 +4,13 @@ CRUD over the API is covered in tests/integration; these are the parts of the
 manager that touch the filesystem or a profile's identity.
 """
 
+import asyncio
 import shutil
 from pathlib import Path
 
 import pytest
 
-from camoufox_pm.core import fingerprint_store
+from camoufox_pm.core import events, fingerprint_store, proxy_check
 from camoufox_pm.core import profile_manager as pm_module
 
 PINNED = {
@@ -304,6 +305,106 @@ async def test_the_first_launch_pins_the_machine_it_resolved(profile_manager, mo
     stored = await profile_manager.get_profile(profile.id)
     assert stored.fingerprint == resolved
     assert stored.last_used is not None
+
+
+@pytest.mark.parametrize("proxied", [False, True])
+@pytest.mark.parametrize("manual_location", [False, True])
+@pytest.mark.asyncio
+async def test_launch_records_the_same_exit_used_by_the_browser(
+    profile_manager, launches, monkeypatch, proxied, manual_location
+):
+    """One live lookup supplies both the launch and the list, even with geoip off."""
+    calls = []
+
+    async def resolve(proxy, timeout):
+        calls.append(proxy)
+        return "203.0.113.7", 29
+
+    monkeypatch.setattr(proxy_check, "resolve_exit_ip", resolve)
+    profile = await profile_manager.create_profile(
+        name="auto-exit",
+        proxy_config={
+            "type": "socks5",
+            "server": "provider.invalid:1080",
+            "username": "u",
+            "password": "p",
+        }
+        if proxied
+        else None,
+        browser_settings={
+            "geolocation": {"lat": 12, "lon": 30},
+            "timezone": "Asia/Tokyo",
+            "webrtc_mode": "none",
+        }
+        if manual_location
+        else {},
+    )
+    queue = asyncio.Queue()
+    events.subscribers.add(queue)
+    try:
+        await profile_manager.launch_browser(profile.id)
+        stored = await profile_manager.get_profile(profile.id)
+        assert calls == [profile.proxy]
+        assert stored.last_browser_exit.ip == "203.0.113.7"
+        assert stored.last_browser_exit.country == "JP"
+        assert stored.last_browser_exit.timezone == "Asia/Tokyo"
+        assert stored.last_browser_exit.proxy_changed is False
+        assert stored.proxy_check is None
+        assert stored.row_version == profile.row_version
+        notifications = [queue.get_nowait() for _ in range(queue.qsize())]
+        assert [event["profile_id"] for event in notifications] == [profile.id, profile.id]
+        if manual_location:
+            assert launches[0]["geoip"] is False
+            assert launches[0]["config"]["geolocation:latitude"] == 12
+            assert launches[0]["config"]["timezone"] == "Asia/Tokyo"
+        else:
+            assert launches[0]["geoip"] == stored.last_browser_exit.ip
+    finally:
+        events.subscribers.discard(queue)
+
+
+@pytest.mark.asyncio
+async def test_launch_keeps_the_actual_exit_if_the_saved_proxy_changes_during_lookup(
+    profile_manager, launches, monkeypatch
+):
+    profile = await profile_manager.create_profile(
+        name="before", proxy_config={"type": "http", "server": "old.invalid:8080"}
+    )
+
+    async def resolve(proxy, timeout):
+        await profile_manager.update_profile(
+            profile.id,
+            {"name": "after", "proxy_config": {"type": "http", "server": "new.invalid:8080"}},
+        )
+        return "203.0.113.7", 1
+
+    monkeypatch.setattr(proxy_check, "resolve_exit_ip", resolve)
+    await profile_manager.launch_browser(profile.id)
+    stored = await profile_manager.get_profile(profile.id)
+    assert stored.name == "after"
+    assert stored.proxy.server == "new.invalid:8080"
+    assert stored.proxy_check is None
+    assert stored.last_browser_exit.ip == "203.0.113.7"
+    assert stored.last_browser_exit.proxy_changed is True
+
+
+@pytest.mark.asyncio
+async def test_failed_exit_lookup_never_launches_or_stores_a_success(
+    profile_manager, launches, monkeypatch
+):
+    profile = await profile_manager.create_profile(
+        name="unreachable", proxy_config={"type": "socks5", "server": "dead.invalid:1080"}
+    )
+
+    async def refuse(*args, **kwargs):
+        raise ConnectionError("private proxy details")
+
+    monkeypatch.setattr(proxy_check, "resolve_exit_ip", refuse)
+    with pytest.raises(ConnectionError, match="Check the proxy"):
+        await profile_manager.launch_browser(profile.id)
+    assert launches == []
+    assert (await profile_manager.get_profile(profile.id)).proxy_check is None
+    assert (await profile_manager.storage.get_lease(profile.id))[0] is None
 
 
 @pytest.mark.asyncio

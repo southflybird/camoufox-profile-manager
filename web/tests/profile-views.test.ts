@@ -27,3 +27,9 @@ test('malformed URL sort/status/page cannot select unknown operations', () => {
   assert.equal(result.page, 1)
   assert.deepEqual(result.config, { ...DEFAULT_VIEW, tags: ['work'] })
 })
+
+
+test('creation-time sorting survives saved links', () => {
+  const config = { ...DEFAULT_VIEW, sort_key: 'created_at' as const, sort_direction: 'desc' as const }
+  assert.deepEqual(readProfileView(new URLSearchParams(profileViewQuery(config, 2))), { config, page: 2 })
+})

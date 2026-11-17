@@ -43,6 +43,7 @@ async def test_health_check_and_fresh_launch_ip_use_remote_destination_and_verif
     certs, monkeypatch, protocol, auth
 ):
     monkeypatch.setenv("SSL_CERT_FILE", str(certs[0]))
+    monkeypatch.setattr(proxy_check, "locate", lambda ip: proxy_check.ProxyLocation(ip=ip))
     async with proxy_fixture(protocol, certs, auth=auth) as fixture:
         monkeypatch.setattr(
             proxy_check, "IP_ENDPOINTS", (f"https://cpm-origin.invalid:{fixture.https_port}/ip",)

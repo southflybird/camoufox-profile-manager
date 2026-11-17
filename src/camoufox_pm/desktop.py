@@ -71,6 +71,9 @@ def _wait_until_serving(
 
 def _stop_server(server: uvicorn.Server, thread: threading.Thread) -> bool:
     """Finish lifespan cleanup before permitting a native application quit."""
+    from camoufox_pm.core import events
+
+    events.stopping = True
     server.should_exit = True
     thread.join(timeout=15)
     if thread.is_alive():
@@ -130,11 +133,118 @@ def run_desktop(host: str = "127.0.0.1", port: int = 0, title: str = APP_NAME) -
                         "The local server could not start. See desktop.log in your data folder."
                     )
                 ui_host = "127.0.0.1" if host in ("0.0.0.0", "127.0.0.1") else host
+                from urllib.parse import urlsplit
+
+                from camoufox_pm.core import events
+                from camoufox_pm.desktop_state import DesktopState
+
+                events.stopping = False
+                desktop_state = DesktopState(Path(settings.db_path).resolve().parent)
+                saved = desktop_state._data.get("window", {})
+                screen = webview.screens[0]
+                if not isinstance(saved, dict):
+                    saved = {}
+
+                def dimension(key, default, minimum, maximum):
+                    value = saved.get(key, default)
+                    return min(max(value if type(value) is int else default, minimum), maximum)
+
+                width = dimension("width", 1280, 640, screen.width)
+                height = dimension("height", 800, 480, screen.height)
+                x, y = saved.get("x"), saved.get("y")
+                if (
+                    not isinstance(x, int)
+                    or not isinstance(y, int)
+                    or not any(
+                        display.x <= x <= display.x + display.width - 100
+                        and display.y <= y <= display.y + display.height - 40
+                        for display in webview.screens
+                    )
+                ):
+                    x, y = screen.x, screen.y
+                target_screen = next(
+                    (
+                        display
+                        for display in webview.screens
+                        if display.x <= x < display.x + display.width
+                        and display.y <= y < display.y + display.height
+                    ),
+                    screen,
+                )
+                width, height = min(width, target_screen.width), min(height, target_screen.height)
+                x = min(max(x, target_screen.x), target_screen.x + target_screen.width - width)
+                y = min(max(y, target_screen.y), target_screen.y + target_screen.height - height)
+                origin = f"http://{ui_host}:{actual_port}/"
                 window = webview.create_window(
-                    title, f"http://{ui_host}:{actual_port}/", width=1280, height=800
+                    title,
+                    origin,
+                    width=width,
+                    height=height,
+                    x=x,
+                    y=y,
+                    maximized=bool(saved.get("maximized", False)),
+                    js_api=desktop_state,
                 )
                 if window is None:
                     raise RuntimeError("The native window could not be created.")
+                desktop_state._data["window"] = {
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
+                    "maximized": bool(saved.get("maximized", False)),
+                }
+                desktop_state._window = window
+                desktop_state._origin = urlsplit(origin)[:2]
+                window_mode = {"maximized": bool(saved.get("maximized", False)), "minimized": False}
+                pending_save = [None]
+
+                def save_window(*args):
+                    with desktop_state._lock:
+                        state = desktop_state._data.setdefault("window", {})
+                        if not window_mode["maximized"] and not window_mode["minimized"]:
+                            state.update(
+                                x=window.x, y=window.y, width=window.width, height=window.height
+                            )
+                        state["maximized"] = window_mode["maximized"]
+                        try:
+                            desktop_state._write()
+                        except OSError:
+                            # Preference failure must never prevent service/browser cleanup.
+                            pass
+
+                def schedule_window(*args):
+                    if pending_save[0]:
+                        pending_save[0].cancel()
+                    pending_save[0] = threading.Timer(0.5, save_window)
+                    pending_save[0].daemon = True
+                    pending_save[0].start()
+
+                def mode(name):
+                    def update(*args):
+                        if name == "minimized":
+                            window_mode["minimized"] = True
+                        elif name == "normal" and window_mode["minimized"]:
+                            window_mode["minimized"] = False
+                        else:
+                            window_mode.update(maximized=name == "maximized", minimized=False)
+                        schedule_window()
+
+                    return update
+
+                window.events.moved += schedule_window
+                window.events.resized += schedule_window
+                window.events.maximized += mode("maximized")
+                window.events.minimized += mode("minimized")
+                window.events.restored += mode("normal")
+
+                def close_window():
+                    if pending_save[0]:
+                        pending_save[0].cancel()
+                    save_window()
+                    return _stop_server(server, thread) if sys.platform == "darwin" else True
+
+                window.events.closing += close_window
 
                 def monitor_updates():
                     from camoufox_pm.core.update_runtime import _record
@@ -146,11 +256,6 @@ def run_desktop(host: str = "127.0.0.1", port: int = 0, title: str = APP_NAME) -
                         time.sleep(0.5)
 
                 threading.Thread(target=monitor_updates, daemon=True).start()
-                if sys.platform == "darwin":
-                    # Cocoa Cmd+Q may terminate NSApplication without returning
-                    # from webview.start(). Its synchronous closing event must
-                    # finish API/browser cleanup first (False cancels the quit).
-                    window.events.closing += lambda: _stop_server(server, thread)
                 if sys.platform.startswith("linux"):
                     icon_root = Path(
                         getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2] / "packaging")

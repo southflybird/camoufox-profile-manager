@@ -201,6 +201,7 @@ class FakeClient:
 def answers(monkeypatch):
     """Script the exit-address endpoints. Returns the client so it can be inspected."""
     holder = {}
+    monkeypatch.setattr(proxy_check, "locate", lambda ip: ProxyLocation(ip=ip))
 
     def install(*scripted):
         client = FakeClient(scripted)
@@ -422,10 +423,13 @@ async def test_auth_socks_normal_geoip_uses_original_upstream_and_literal_ip(mon
         return "203.0.113.7", 12
 
     monkeypatch.setattr(proxy_check, "resolve_exit_ip", resolve)
+    monkeypatch.setattr(proxy_check, "locate", lambda ip: TOKYO)
     options = {"geoip": True}
-    await proxy_check.prepare_proxy_geoip(proxy, options)
+    result = await proxy_check.prepare_proxy_geoip(proxy, options)
     assert seen == [proxy]
     assert options["geoip"] == "203.0.113.7"
+    assert result.location == TOKYO
+    assert result.latency_ms == 12
 
 
 @pytest.mark.asyncio

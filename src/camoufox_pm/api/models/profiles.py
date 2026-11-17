@@ -6,7 +6,13 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from camoufox_pm.core.models import Profile, ProfileStatus, ProfileTags, ProxyCheckRecord
+from camoufox_pm.core.models import (
+    BrowserExitRecord,
+    Profile,
+    ProfileStatus,
+    ProfileTags,
+    ProxyCheckRecord,
+)
 from camoufox_pm.core.proxy_check import Level, ProxyCheckResult
 
 
@@ -166,8 +172,12 @@ class ProfileResponse(BaseModel):
         None,
         description=(
             "The last answer this profile's proxy gave, or null if it has not been "
-            "checked since the proxy was last changed. Only a check writes it."
+            "checked since the proxy was last changed. Diagnostics only; see last_browser_exit."
         ),
+    )
+    last_browser_exit: BrowserExitRecord | None = Field(
+        None,
+        description="Last successful browser launch exit. Proxy edits and checks do not replace it.",
     )
     row_version: int = Field(
         0,
@@ -227,6 +237,7 @@ class ProfileResponse(BaseModel):
                 )
             ),
             row_version=profile.row_version,
+            last_browser_exit=profile.last_browser_exit,
         )
 
 
@@ -343,6 +354,12 @@ class BrowsersCloseAllResponse(BaseModel):
 class ProxyCheckRequest(BaseModel):
     """Request body for checking a proxy that is not saved yet."""
 
+    profile_id: str | None = Field(
+        None,
+        min_length=1,
+        max_length=255,
+        description="Retain the result on this profile if its saved proxy matches the request.",
+    )
     proxy_config: dict[str, Any] | None = Field(
         None, description="Proxy to check. Omit to check the direct connection."
     )

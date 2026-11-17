@@ -245,6 +245,19 @@ class ProxyCheckRecord(BaseModel):
     findings: list[ProxyCheckFinding] = Field(default_factory=list)
 
 
+class BrowserExitRecord(BaseModel):
+    """The exit used by the last successful browser launch, independent of checks."""
+
+    checked_at: datetime
+    ip: str
+    country: str | None = None
+    timezone: str | None = None
+    proxy_changed: bool = False
+    # Older releases mixed manual checks and launches; retain their known IP
+    # without presenting its timestamp as a verified successful launch.
+    legacy: bool = False
+
+
 def normalize_tags(values: Any) -> list[str]:
     """Bounded, case-insensitive labels; tags never affect browser identity."""
     if not isinstance(values, list) or len(values) > 100:
@@ -298,6 +311,7 @@ class Profile(BaseModel):
     # without checking again. Cleared when the proxy changes: an answer from the
     # old proxy says nothing about the new one.
     proxy_check: ProxyCheckRecord | None = None
+    last_browser_exit: BrowserExitRecord | None = None
 
     # Optimistic-concurrency counter, bumped by every version-checked save. A
     # caller reads a profile, edits it, and writes back against the version it

@@ -30,8 +30,23 @@ def desktop_runtime(monkeypatch, tmp_path):
             self.handlers.append(handler)
             return self
 
-    window = SimpleNamespace(events=SimpleNamespace(closing=ClosingEvent()))
-    webview = SimpleNamespace(create_window=Mock(return_value=window), start=Mock())
+    window = SimpleNamespace(
+        x=20,
+        y=30,
+        width=1280,
+        height=800,
+        events=SimpleNamespace(
+            **{
+                name: ClosingEvent()
+                for name in ("closing", "moved", "resized", "maximized", "minimized", "restored")
+            }
+        ),
+    )
+    webview = SimpleNamespace(
+        screens=[SimpleNamespace(x=0, y=0, width=1920, height=1080)],
+        create_window=Mock(return_value=window),
+        start=Mock(),
+    )
     monkeypatch.setitem(sys.modules, "webview", webview)
     servers = []
 
@@ -306,3 +321,15 @@ def test_packaged_recovery_refuses_control_symlink_without_chmod_or_gui(tmp_path
     assert target.stat().st_mode == original_mode
     assert not (target / "recovery-command.log").exists()
     config.get_settings.cache_clear()
+
+
+def test_window_bounds_restore_and_corrupt_dimensions_fall_back(desktop_runtime):
+    import json
+    path = desktop_runtime.directory / "desktop-state.json"
+    path.write_text(json.dumps({"window": {"x": 99999, "y": -99999, "width": "bad", "height": 999999, "maximized": True}}))
+    desktop.run_desktop()
+    arguments = desktop_runtime.webview.create_window.call_args.kwargs
+    assert arguments["width"] == 1280
+    assert arguments["height"] == 1080
+    assert arguments["x"] == 0 and arguments["y"] == 0
+    assert arguments["maximized"] is True

@@ -132,7 +132,7 @@ interface Props {
   profile: Profile | null
   groups: Group[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (profile?: Profile) => void
 }
 
 export function ProfileForm({ open, profile, groups, onClose, onSaved }: Props) {
@@ -255,12 +255,13 @@ export function ProfileForm({ open, profile, groups, onClose, onSaved }: Props) 
     setCheckingProxy(true)
     setProxyCheck(null)
     try {
-      setProxyCheck(
-        await profilesAPI.checkUnsavedProxy({
-          proxy_config: buildProxy(),
-          browser_settings: buildBrowserSettings(),
-        }),
-      )
+      const result = await profilesAPI.checkUnsavedProxy({
+        profile_id: profile?.id,
+        proxy_config: buildProxy(),
+        browser_settings: buildBrowserSettings(),
+      })
+      setProxyCheck(result)
+      if (result.checked_at) onSaved()
     } catch (error) {
       toast('error', t('Could not check the proxy'), (error as Error).message)
     } finally {
@@ -295,23 +296,24 @@ export function ProfileForm({ open, profile, groups, onClose, onSaved }: Props) 
         delete payload.proxy_config
         delete payload.group
       }
+      let saved: Profile
       if (isEdit) {
         payload.status = form.status
         payload.row_version = baseVersion
-        await profilesAPI.updateProfile(profile.id, payload)
+        saved = await profilesAPI.updateProfile(profile.id, payload)
         toast('ok', t('Profile updated'), form.name.trim())
       } else {
         // The backend generates a consistent fingerprint, then applies these.
         payload.generate_fingerprint = true
         if (presetId) payload.fingerprint_preset = presetId
-        await profilesAPI.createProfile(payload)
+        saved = await profilesAPI.createProfile(payload)
         toast(
           'ok',
           t('Profile created'),
           presetId ? t('{name} · pinned to a real device', { name: form.name.trim() }) : form.name.trim(),
         )
       }
-      onSaved()
+      onSaved(saved)
       onClose()
     } catch (err) {
       if (isStaleWrite(err) && profile) {

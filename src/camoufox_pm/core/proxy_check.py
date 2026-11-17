@@ -119,8 +119,8 @@ class ProxyCheckResult:
 def record(result: ProxyCheckResult, checked_at: datetime | None = None) -> ProxyCheckRecord:
     """The part of a check worth keeping on the profile.
 
-    Stored so the list can show a proxy's last answer without asking again, which
-    is the whole point of checking on demand rather than on a timer.
+    Explicit checks supply diagnostics. Successful browser launches have their
+    own history so checking a new proxy cannot replace the last actual exit.
     """
     return ProxyCheckRecord(
         checked_at=checked_at or datetime.now(timezone.utc),
@@ -455,20 +455,21 @@ def _readable(error: Exception | None, proxy_type: ProxyType | None = None) -> s
     return "Could not reach the internet through the proxy."
 
 
-async def prepare_proxy_geoip(proxy: ProxyConfig | None, options: dict[str, Any]) -> None:
-    """Resolve proxy launches with verified TLS and no SDK cache.
+async def prepare_proxy_geoip(
+    proxy: ProxyConfig | None, options: dict[str, Any]
+) -> ProxyCheckResult | None:
+    """Resolve launches with verified TLS and no SDK cache, retaining the result.
 
     Coordinates intentionally disable SDK geoip; their existing fill path stays
     responsible for timezone and WebRTC. A normal launch needs a fresh exit IP
     before replacing its browser proxy with the session's local relay.
     """
-    if proxy is None:
-        return
-    proxy.validate_authentication()
+    if proxy is not None:
+        proxy.validate_authentication()
     if options.get("geoip") is not True:
-        return
+        return None
     try:
-        ip, _ = await asyncio.wait_for(
+        ip, latency = await asyncio.wait_for(
             resolve_exit_ip(proxy, timeout=LAUNCH_TIMEOUT), timeout=LAUNCH_TIMEOUT
         )
     except (ConnectionError, asyncio.TimeoutError):
@@ -476,9 +477,15 @@ async def prepare_proxy_geoip(proxy: ProxyConfig | None, options: dict[str, Any]
             "Could not resolve the proxy exit address. Check the proxy before launching."
         ) from None
     options["geoip"] = ip
+    # Camoufox will use this same literal IP for its dynamic fingerprint values.
+    # The local lookup lets the profile list retain the exit it actually used.
+    location = await asyncio.to_thread(locate, ip)
+    return ProxyCheckResult(reachable=True, latency_ms=latency, location=location)
 
 
-async def fill_what_geoip_would_have(proxy: ProxyConfig | None, options: dict[str, Any]) -> None:
+async def fill_what_geoip_would_have(
+    proxy: ProxyConfig | None, options: dict[str, Any]
+) -> ProxyCheckResult | None:
     """Supply the IP-derived values Camoufox skips when geoip is off.
 
     Setting coordinates turns geoip off, because that is the only way Camoufox
@@ -496,17 +503,14 @@ async def fill_what_geoip_would_have(proxy: ProxyConfig | None, options: dict[st
     that fails blocks a proxied launch; direct launches retain their previous behavior.
     """
     if options.get("geoip"):
-        return
+        return None
 
     config = options.setdefault("config", {})
     needs_timezone = "timezone" not in config
     has_webrtc = "webrtc:ipv4" in config or "webrtc:ipv6" in config
     needs_webrtc = not has_webrtc and not options.get("block_webrtc")
-    if not needs_timezone and not needs_webrtc:
-        return
-
     try:
-        ip, _ = await asyncio.wait_for(
+        ip, latency = await asyncio.wait_for(
             resolve_exit_ip(proxy, timeout=LAUNCH_TIMEOUT), timeout=LAUNCH_TIMEOUT
         )
     except (ConnectionError, asyncio.TimeoutError) as exc:
@@ -515,7 +519,7 @@ async def fill_what_geoip_would_have(proxy: ProxyConfig | None, options: dict[st
                 "Could not resolve the proxy exit address. Check the proxy before launching."
             ) from None
         logger.warning(f"Could not find the exit address, leaving the launch alone: {exc}")
-        return
+        return None
 
     if needs_webrtc:
         if valid_ipv4(ip):
@@ -525,22 +529,20 @@ async def fill_what_geoip_would_have(proxy: ProxyConfig | None, options: dict[st
             options.setdefault("firefox_user_prefs", {})["network.dns.disableIPv6"] = True
         else:
             config["webrtc:ipv6"] = ip
-    if not needs_timezone:
-        return
-
     try:
         location = await asyncio.to_thread(locate, ip)
     except LocationUnavailable as exc:
-        if proxy is not None:
+        if proxy is not None and needs_timezone:
             raise ConnectionError(
                 "Could not place the proxy exit address. Install browser location resources before launching."
             ) from None
         logger.warning(f"Could not place {ip}, leaving the timezone alone: {exc}")
-        return
+        location = ProxyLocation(ip=ip)
 
-    if location.timezone:
+    if needs_timezone and location.timezone:
         config["timezone"] = location.timezone
         logger.info(f"Timezone {location.timezone} taken from the exit address {ip}")
+    return ProxyCheckResult(reachable=True, latency_ms=latency, location=location)
 
 
 async def check(

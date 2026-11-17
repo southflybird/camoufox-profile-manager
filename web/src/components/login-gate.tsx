@@ -1,5 +1,6 @@
 'use client'
 
+import { desktopAPI } from '@/lib/desktop'
 import { LanguageSelector } from '@/components/language-selector'
 import { useI18n } from '@/components/i18n-provider'
 
@@ -146,13 +147,30 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => voi
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [remember, setRemember] = useState(false)
+  const [desktop, setDesktop] = useState(false)
+  const [notice, setNotice] = useState('')
+  useEffect(() => {
+    let active = true
+    void desktopAPI().then(async api => {
+      if (!api || !active) return
+      setDesktop(true)
+      try { const saved = await api.read_login(); if (saved && active) { setUsername(saved.username); setPassword(saved.password); setRemember(true) } } catch { /* Login is independent of credential storage. */ }
+    })
+    return () => { active = false }
+  }, [])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      onLoggedIn(await authAPI.login(username, password))
+      const result = await authAPI.login(username, password)
+      if (desktop) {
+        try { const api = await desktopAPI(); if (remember) await api?.save_login(username, password); else await api?.clear_login() }
+        catch { setNotice(t('Signed in, but login details could not be remembered.')); window.alert(t('Signed in, but login details could not be remembered.')) }
+      }
+      onLoggedIn(result)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
       setPassword('')
@@ -186,6 +204,8 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (session: AuthSession) => voi
             autoComplete="current-password"
           />
         </label>
+        {desktop && <label className="flex items-center gap-2"><input type="checkbox" checked={remember} onChange={event => { setRemember(event.target.checked); if (!event.target.checked) void desktopAPI().then(api => api?.clear_login()).catch(() => setNotice(t('Could not clear remembered login. Please retry.'))) }} />{t('Remember username and password')}</label>}
+        {notice && <p role="status">{notice}</p>}
         {error && <p className="text-danger">{error}</p>}
         <button type="submit" className="btn btn-primary" disabled={busy || !username || !password}>
           {busy ? t('Signing in…') : t('Sign in')}

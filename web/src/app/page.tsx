@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -25,6 +25,11 @@ import {
   Users,
 } from 'lucide-react'
 
+import { subscribeProfileEvents } from '@/lib/profile-events'
+import { readPreferences, writePreferences } from '@/lib/desktop'
+import { SystemIcon } from '@/components/system-icon'
+import { FloatingMenu } from '@/components/floating-menu'
+import { ProfileQuickEdit } from '@/components/profile-quick-edit'
 import { useI18n } from '@/components/i18n-provider'
 import { useAuth } from '@/components/login-gate'
 import { ProfileSyncPanel, syncPhaseLabel } from '@/components/profile-sync-panel'
@@ -47,11 +52,8 @@ import {
   browsersAPI,
   ApiRequestError,
   browserCloseFailure,
-  formatLastUsed,
-  formatProxyString,
   groupsAPI,
   hasGeography,
-  OS_LABELS,
   profilesAPI,
   readProxyCheck,
   type Group,
@@ -60,21 +62,21 @@ import {
   type ProxyCheckRecord,
 } from '@/lib/api'
 
-type SortKey = 'name' | 'id' | 'group' | 'os' | 'status' | 'last_used'
+type SortKey = 'name' | 'id' | 'group' | 'os' | 'status' | 'last_used' | 'created_at'
 type ProfileSnapshot = { profiles: Profile[]; groups: Group[] | null; bindings: ProfileSyncBinding[] | null }
 
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: 'Name' },
   { key: 'id', label: 'ID' },
   { key: 'group', label: 'Group' },
-  { key: 'os', label: 'OS' },
   { key: 'status', label: 'Status' },
   { key: 'last_used', label: 'Last used' },
+  { key: 'created_at', label: 'Created at' },
 ]
 
 export default function ProfilesPage() {
   const { t, locale } = useI18n()
-  const { canManageAccess, role } = useAuth()
+  const { canManageAccess, role, username } = useAuth()
   const can = (profile: Profile, permission: 'view' | 'edit' | 'launch' | 'export') => canManageAccess || profile.permissions?.[permission] === true
   const [syncFor, setSyncFor] = useState<Profile | 'available' | null>(null)
   const [syncBindings, setSyncBindings] = useState<ProfileSyncBinding[]>([])
@@ -90,14 +92,17 @@ export default function ProfilesPage() {
   const [groupFilter, setGroupFilter] = useState<string | null>(null)
   const [tagFilters, setTagFilters] = useState<string[]>([])
   const [urlReady, setUrlReady] = useState(false)
-  const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [sortKey, setSortKey] = useState<SortKey>('created_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const perPage = 25
 
   const [checkingProxies, setCheckingProxies] = useState<Set<string>>(new Set())
+  const [proxyDiagnostics, setProxyDiagnostics] = useState<{ name: string; record: ProxyCheckRecord }[]>([])
+  const [proxyDiagnosticsOpen, setProxyDiagnosticsOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
   const [confirm, setConfirm] = useState<null | {
@@ -113,13 +118,26 @@ export default function ProfilesPage() {
   const [tagsFor, setTagsFor] = useState<Profile[] | null>(null)
   const [batch, setBatch] = useState<{ action: 'launch' | 'close'; targets: BatchTarget[] } | null>(null)
 
+  const [quickEdit, setQuickEdit] = useState<{ profile: Profile; field: 'name' | 'notes' } | null>(null)
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([])
+  const [preferencesReady, setPreferencesReady] = useState(false)
   const toast = useToast()
+  const copy = (value: string) => { void navigator.clipboard.writeText(value).then(() => toast('ok', t('Copied')), () => toast('error', t('Copy failed'))) }
+  const editButton = (profile: Profile, field: 'name' | 'notes') => can(profile, 'edit') && <button className="ml-2 inline-flex opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={field === 'name' ? t('Quick edit name') : t('Quick edit notes')} onClick={() => setQuickEdit({ profile, field })}><Pencil size={13} /></button>
+  const cellStyle = (key: string) => hiddenColumns.includes(key) ? { display: 'none' } : undefined
+  const exactTime = (value?: string | null) => {
+    if (!value) return t('Never used')
+    if (!/(Z|[+-]\d{2}:\d{2})$/.test(value)) return value.replace('T', ' ').slice(0, 19)
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('sv-SE')
+  }
   const importRef = useRef<HTMLInputElement>(null)
   const archiveRef = useRef<HTMLInputElement>(null)
+  const updateEpoch = useRef(0)
   const profileReads = useRef(new LatestRead<ProfileSnapshot>())
   const runningReads = useRef(new LatestRead<string[]>())
 
-  const refreshProfiles = useCallback((background: boolean) => profileReads.current.run(background, async signal => {
+  const refreshProfiles = useCallback((background: boolean) => { updateEpoch.current += 1; return profileReads.current.run(background, async signal => {
       // The API paginates; pull every page so sorting and search stay client-side
       // and instant. Guarded so a bad has_next can never spin forever.
       const collected: Profile[] = []
@@ -152,6 +170,8 @@ export default function ProfilesPage() {
       const accessLost = err instanceof ApiRequestError && (err.status === 401 || err.status === 403)
       if (background && !accessLost) return
       if (accessLost) {
+        setProxyDiagnostics([])
+        setProxyDiagnosticsOpen(false)
         setProfiles([])
         setSelected(new Set())
         setEditing(null)
@@ -160,7 +180,7 @@ export default function ProfilesPage() {
       }
       setError(String(err instanceof Error ? err.message : err))
       setLoading(false)
-    }), [canManageAccess])
+    }) }, [canManageAccess])
   const loadProfiles = useCallback(async () => { await refreshProfiles(false) }, [refreshProfiles])
 
   const refreshRunning = useCallback((background: boolean) => runningReads.current.run(background,
@@ -177,9 +197,47 @@ export default function ProfilesPage() {
     browsers.resume()
     void loadProfiles()
     void loadRunning()
-    const stopProfiles = startRefreshLoop(() => refreshProfiles(true))
+    const stopProfiles = startRefreshLoop(() => refreshProfiles(true), 60_000)
+    const pending = new Set<string>()
+    let reset = false
+    let active = false
+    let disposed = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const flush = async () => {
+      if (active || disposed) return
+      active = true
+      try {
+        while (!disposed && (reset || pending.size)) {
+          const full = reset || pending.size > 20
+          reset = false
+          const ids = [...pending]; pending.clear()
+          if (full) { await loadProfiles(); continue }
+          // Stop older collection snapshots from replacing newer detail responses.
+          profiles.dispose(); profiles.resume()
+          const epoch = ++updateEpoch.current
+          for (const id of ids) {
+            try {
+              const updated = await profilesAPI.getProfile(id)
+              if (epoch !== updateEpoch.current) { reset = true; break }
+              if (!disposed) setProfiles(current => current.some(item => item.id === id) ? current.map(item => item.id === id ? updated : item) : [...current, updated])
+            } catch (error) {
+              if (error instanceof ApiRequestError && (error.status === 404 || error.status === 403)) {
+                if (!disposed) { setProfiles(current => current.filter(item => item.id !== id)); setSelected(current => new Set([...current].filter(item => item !== id))) }
+              } else reset = false
+            }
+          }
+        }
+      } finally { active = false }
+    }
+    const stopEvents = subscribeProfileEvents(id => {
+      if (id) pending.add(id); else reset = true
+      if (!timer) timer = setTimeout(() => { timer = undefined; void flush() }, 100)
+    }, () => window.dispatchEvent(new CustomEvent('camoufox-access-denied')))
     const stopBrowsers = startRefreshLoop(() => refreshRunning(true), 5000)
     return () => {
+      disposed = true
+      clearTimeout(timer)
+      stopEvents()
       stopProfiles()
       stopBrowsers()
       profiles.dispose()
@@ -220,12 +278,30 @@ export default function ProfilesPage() {
   }
 
   useEffect(() => {
-    const read = () => { const view = readProfileView(new URLSearchParams(window.location.search)); applyView(view.config, view.page); setUrlReady(true) }
+    let cancelled = false
+    const read = async () => {
+      const prefs = await readPreferences(username ?? '__local__').catch(() => ({} as Record<string, unknown>))
+      if (cancelled) return
+      const params = new URLSearchParams(window.location.search)
+      if (![...params.keys()].some(key => ['sort', 'direction', 'search', 'status', 'group', 'tags', 'tag', 'page'].includes(key))) {
+        params.set('sort', typeof prefs.sort === 'string' ? prefs.sort : 'created_at')
+        params.set('direction', prefs.direction === 'asc' ? 'asc' : 'desc')
+      }
+      const view = readProfileView(params); applyView(view.config, view.page)
+      setHiddenColumns(Array.isArray(prefs.hidden) ? prefs.hidden.filter((item): item is string => typeof item === 'string') : [])
+      setPreferencesReady(true); setUrlReady(true)
+    }
     // Read only after mount: the bundled static page has no request URL.
     read()
     window.addEventListener('popstate', read)
-    return () => window.removeEventListener('popstate', read)
-  }, [])
+    return () => { cancelled = true; window.removeEventListener('popstate', read) }
+  }, [username])
+
+  useEffect(() => {
+    if (!preferencesReady) return
+    const timer = setTimeout(() => { void writePreferences(username ?? '__local__', { sort: sortKey, direction: sortDir, hidden: hiddenColumns }).catch(() => undefined) }, 300)
+    return () => clearTimeout(timer)
+  }, [username, preferencesReady, sortKey, sortDir, hiddenColumns])
 
 
   const groupNames = useMemo(
@@ -248,7 +324,7 @@ export default function ProfilesPage() {
 
     const direction = sortDir === 'asc' ? 1 : -1
     return [...filtered].sort((a, b) => {
-      switch (sortKey) {
+      const compare = () => { switch (sortKey) {
         case 'id':
           return a.id.localeCompare(b.id) * direction
         case 'group':
@@ -259,13 +335,17 @@ export default function ProfilesPage() {
           return (a.browser_settings?.os ?? '').localeCompare(b.browser_settings?.os ?? '') * direction
         case 'status':
           return a.status.localeCompare(b.status) * direction
+        case 'created_at':
+          return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction
         case 'last_used':
+          if (!a.last_used || !b.last_used) return a.last_used ? -1 : b.last_used ? 1 : 0
           return (
             (new Date(a.last_used ?? 0).getTime() - new Date(b.last_used ?? 0).getTime()) * direction
           )
         default:
           return a.name.localeCompare(b.name) * direction
-      }
+      } }
+      return compare() || b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id)
     })
   }, [profiles, search, statusFilter, groupFilter, tagFilters, sortKey, sortDir, groupNames])
 
@@ -300,7 +380,7 @@ export default function ProfilesPage() {
    * drops focus to <body>, and a refocus queued after the close races that reset.
    */
   function closeMenu(profileId: string) {
-    document.querySelector<HTMLButtonElement>(`[data-menu-trigger="${profileId}"]`)?.focus()
+    document.querySelector<HTMLButtonElement>(`[data-menu-trigger="${profileId}"]`)?.focus({ preventScroll: true })
     setMenuFor(null)
   }
 
@@ -397,14 +477,7 @@ export default function ProfilesPage() {
     }
   }
 
-  /**
-   * Check one proxy and leave the answer in its row.
-   *
-   * The row is the report, not a toast: a toast is gone in four seconds, and the
-   * question this answers — is this proxy alive, and does it agree with the
-   * profile — is one the list should keep showing. Only a failure to reach *our
-   * own API* is worth interrupting for, because then no row can say anything.
-   */
+  /** Diagnostics have their own report; they never replace successful launch history. */
   async function checkProxy(profile: Profile): Promise<ProxyCheckRecord | null> {
     setCheckingProxies((current) => new Set(current).add(profile.id))
     try {
@@ -422,6 +495,7 @@ export default function ProfilesPage() {
       setProfiles((current) =>
         current.map((row) => (row.id === profile.id ? { ...row, proxy_check: record } : row)),
       )
+      setProxyDiagnostics(current => [...current, { name: profile.name, record }])
       return record
     } catch (err) {
       toast('error', t('Could not check the proxy'), String(err))
@@ -445,6 +519,8 @@ export default function ProfilesPage() {
   async function checkSelectedProxies() {
     const queue = profiles.filter((profile) => selected.has(profile.id) && profile.proxy_config)
     if (!queue.length) return
+    setProxyDiagnostics([])
+    setProxyDiagnosticsOpen(true)
 
     // Counted before the workers start draining the queue.
     const total = queue.length
@@ -472,7 +548,7 @@ export default function ProfilesPage() {
     ].filter(Boolean)
 
     if (parts.length)
-      toast('error', parts.join(', '), t('of {count} selected. The rows carry the detail.', { count: total }))
+      toast('error', parts.join(', '), t('Proxy check results'))
     else toast('ok', clean === 1 ? t('1 proxy is healthy') : t('{count} proxies are healthy', { count: clean }))
   }
 
@@ -733,6 +809,7 @@ export default function ProfilesPage() {
 
       {canManageAccess && !loading && !error && <BrowserSetup firstProfile={profiles.length === 0} onCreate={() => { setEditing(null); setFormOpen(true) }} />}
 
+      <div className="flex items-center justify-end gap-3 p-2"><button className="btn btn-default" onClick={() => void loadProfiles()}>{t('Refresh')}</button><details className="relative"><summary className="cursor-pointer">{t('Visible columns')}</summary><div className="absolute right-0 z-30 min-w-40 rounded border border-line bg-raised p-3">{[['id',t('ID')],['group',t('Group')],['status',t('Status')],['last_used',t('Last used')],['created_at',t('Created at')],['tags',t('Tags')],['notes',t('Notes')],['ip',t('IP and location')]].map(([key,label]) => <label key={key} className="flex gap-2 py-1"><input type="checkbox" disabled={!preferencesReady} checked={!hiddenColumns.includes(key)} onChange={() => setHiddenColumns(current => current.includes(key) ? current.filter(item => item !== key) : [...current,key])} />{label}</label>)}</div></details></div>
       {error ? (
         <EmptyState
           icon={<Users size={18} />}
@@ -781,6 +858,7 @@ export default function ProfilesPage() {
           }
         />
       ) : (
+        <div data-profile-table-scroll className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-line text-left text-[11px] uppercase tracking-[0.05em] text-ink-faint">
@@ -803,19 +881,22 @@ export default function ProfilesPage() {
                 />
               </th>
               {COLUMNS.map((column) => (
-                <th key={column.key} className="py-2 pr-4 font-medium">
+                <Fragment key={column.key}>{column.key === 'status' && <>              <th style={cellStyle('tags')} className="py-2 pr-4">{t('Tags')}</th>
+              <th style={cellStyle('notes')} className="py-2 pr-4">{t('Notes')}</th>
+              <th style={cellStyle('ip')} className="py-2 pr-4">{t('IP and location')}</th>
+</>}<th style={cellStyle(column.key)} key={column.key} className="py-2 pr-4 font-medium">
                   <button
                     className="inline-flex items-center gap-1 hover:text-ink"
+                    disabled={!preferencesReady}
                     onClick={() => toggleSort(column.key)}
                   >
                     {t(column.label)}
                     {sortKey === column.key &&
                       (sortDir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
                   </button>
-                </th>
+                </th></Fragment>
               ))}
-              <th className="py-2 pr-4 font-medium">{t('Proxy')}</th>
-              <th className="w-[104px] py-2 pr-5" />
+              <th className="sticky right-0 w-[104px] bg-canvas py-2 pr-5" />
             </tr>
           </thead>
           <tbody>
@@ -827,7 +908,7 @@ export default function ProfilesPage() {
               return (
                 <tr
                   key={profile.id}
-                  className="row-in group border-b border-line/60 hover:bg-surface"
+                  className="row-in group border-b border-line/60 bg-canvas hover:bg-surface"
                   style={{ animationDelay: `${Math.min(index, 12) * 12}ms` }}
                 >
                   <td className="relative py-2.5 pl-5">
@@ -852,27 +933,41 @@ export default function ProfilesPage() {
                     />
                   </td>
 
-                  <td className="py-2.5 pr-4 font-medium"><p>{profile.name}</p>{(profile.tags ?? []).length > 0 && <div className="mt-1 flex max-w-[240px] flex-wrap gap-1">{profile.tags?.map(tag => <button key={tag} className="rounded border border-line bg-raised px-1.5 py-px text-[11px] font-normal text-ink-dim hover:text-ink" aria-label={t('Filter by tag {tag}', { tag })} onClick={() => setTagFilters([tag])}>{tag}</button>)}</div>}</td>
-                  <td className="py-2.5 pr-4 font-mono text-ink-faint">{profile.id}</td>
-                  <td className="py-2.5 pr-4 text-ink-dim">
-                    {profile.group ? (groupNames.get(profile.group) ?? profile.group) : '—'}
+                  <td className="py-2.5 pr-4 font-medium">
+                    <div className="flex items-center gap-2">
+                      <SystemIcon os={profile.browser_settings?.os} />
+                      <span>{profile.name}</span>
+                      {editButton(profile, 'name')}
+                    </div>
                   </td>
-                  <td className="py-2.5 pr-4 text-ink-dim">
-                    {OS_LABELS[profile.browser_settings?.os ?? ''] ?? profile.browser_settings?.os}
+                  <td style={cellStyle('id')} className="whitespace-nowrap py-2.5 pr-4 font-mono text-ink-faint">
+                    <div className="flex items-center gap-2">
+                      <span>{profile.id}</span>
+                      <button title={t('Copy ID')} aria-label={t('Copy ID')} className="inline-flex shrink-0 hover:text-ink" onClick={() => copy(profile.id)}><Copy size={11} /></button>
+                    </div>
                   </td>
-                  <td className="py-2.5 pr-4">
+                  <td style={cellStyle('group')} className="py-2.5 pr-4 text-ink-dim">{profile.group ? (groupNames.get(profile.group) ?? profile.group) : '—'}</td>
+                  <td style={cellStyle('tags')} className="py-2.5 pr-4"><div className="flex gap-1">{profile.tags?.slice(0, 2).map(tag => <button key={tag} className="rounded border border-line px-1" onClick={() => setTagFilters([tag])}>{tag}</button>)}{(profile.tags?.length ?? 0) > 2 && <span title={profile.tags?.join(', ')}>+{profile.tags!.length - 2}</span>}</div></td>
+                  <td style={cellStyle('notes')} className="py-2.5 pr-4"><span tabIndex={0} title={profile.notes ?? ''} className="inline-block max-w-[180px] truncate align-middle">{profile.notes || '—'}</span>{editButton(profile, 'notes')}</td>
+                  <td style={cellStyle('ip')} className="py-2.5 pr-4 text-ink-dim" title={[
+                    profile.last_browser_exit ? t(profile.last_browser_exit.legacy ? 'Last recorded exit: {time}' : 'Last successful launch: {time}', { time: exactTime(profile.last_browser_exit.checked_at) }) : '',
+                    profile.last_browser_exit?.proxy_changed ? t('Proxy changed; the exit will update after the next successful launch.') : '',
+                  ].filter(Boolean).join('\n')}>
+                    {profile.last_browser_exit ? <>
+                      <button className="font-mono" onClick={() => copy(profile.last_browser_exit!.ip)}>{profile.last_browser_exit.ip} <Copy size={11} className="inline" /></button>
+                      <div>{profile.last_browser_exit.country || t('Unknown location')}</div>
+                      {profile.last_browser_exit.proxy_changed && <div className="text-[11px] text-warn">{t('Proxy changed')}</div>}
+                    </> : t('Not launched yet')}
+                  </td>
+                  <td style={cellStyle('status')} className="py-2.5 pr-4">
                     <StatusCell status={profile.status} running={isRunning} />
                     {syncBinding && <button className="mt-1 block text-left text-xs text-ink-dim underline underline-offset-2" onClick={() => setSyncFor(profile)}>{t(syncBinding.lifecycle?.state === 'trashed' ? 'Synchronized profile is in Trash' : syncPhaseLabel(syncBinding.phase))}</button>}
                   </td>
-                  <td className="py-2.5 pr-4 text-ink-dim">{formatLastUsed(profile.last_used, locale)}</td>
-                  <td className="py-2.5 pr-4">
-                    <ProxyCell
-                      profile={profile}
-                      checking={checkingProxies.has(profile.id)}
-                    />
-                  </td>
+                  <td style={cellStyle('last_used')} className="py-2.5 pr-4 text-ink-dim whitespace-nowrap">{exactTime(profile.last_used)}</td>
+                  <td style={cellStyle('created_at')} className="py-2.5 pr-4 text-ink-dim whitespace-nowrap">{exactTime(profile.created_at)}</td>
 
-                  <td className="py-2.5 pr-5">
+
+                  <td className="sticky right-0 bg-inherit py-2.5 pr-5">
                     <div className="flex items-center justify-end gap-1">
                       <button
                         className="btn btn-default h-7"
@@ -898,20 +993,21 @@ export default function ProfilesPage() {
                           aria-label={t('Actions for {name}', { name: profile.name })}
                           aria-haspopup="menu"
                           aria-expanded={menuFor === profile.id}
+                          id={`profile-actions-${profile.id}`}
                           data-menu-trigger={profile.id}
                           onClick={(event) => {
                             event.stopPropagation()
+                            setMenuAnchor(event.currentTarget)
                             setMenuFor(menuFor === profile.id ? null : profile.id)
                           }}
                         >
                           <Ellipsis size={15} />
                         </button>
 
-                        {menuFor === profile.id && (
-                          <div
-                            role="menu"
-                            className="dialog-in absolute right-0 top-8 z-30 w-[164px] overflow-hidden rounded-md border border-line bg-raised py-1 shadow-xl shadow-black/50"
-                            onClick={(event) => event.stopPropagation()}
+                        {menuFor === profile.id && menuAnchor && (
+                          <FloatingMenu
+                            anchor={menuAnchor}
+                            onClose={() => closeMenu(profile.id)}
                             onKeyDown={(event) => {
                               const items = Array.from(
                                 event.currentTarget.querySelectorAll<HTMLButtonElement>(
@@ -934,7 +1030,6 @@ export default function ProfilesPage() {
                             <MenuItem
                               icon={<Pencil size={13} />}
                               allowed={can(profile, 'edit')} label={t('Edit')}
-                              autoFocus
                               onClick={() => {
                                 setEditing(profile)
                                 setFormOpen(true)
@@ -956,7 +1051,11 @@ export default function ProfilesPage() {
                                 // The set holds ids, not a count, so a second
                                 // check of the same row would clear the first
                                 // one's "Checking…" when it finished.
-                                if (!checkingProxies.has(profile.id)) checkProxy(profile)
+                                if (!checkingProxies.has(profile.id)) {
+                                  setProxyDiagnostics([])
+                                  setProxyDiagnosticsOpen(true)
+                                  void checkProxy(profile)
+                                }
                                 closeMenu(profile.id)
                               }}
                             />
@@ -981,7 +1080,7 @@ export default function ProfilesPage() {
                                 closeMenu(profile.id)
                               }}
                             />
-                          </div>
+                          </FloatingMenu>
                         )}
                       </div>
                     </div>
@@ -990,7 +1089,7 @@ export default function ProfilesPage() {
               )
             })}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {totalPages > 1 && (
@@ -1029,12 +1128,31 @@ export default function ProfilesPage() {
       {tagsFor && <ProfileTagsDialog profiles={tagsFor} onClose={() => setTagsFor(null)} onUpdated={updated => { setProfiles(current => current.map(profile => updated.find(item => item.id === profile.id) ?? profile)); setSelected(new Set()) }} />}
       {batch && <BatchProfileOperations action={batch.action} targets={batch.targets} onClose={() => setBatch(null)} onUpdated={async () => { await Promise.all([loadRunning(), loadProfiles()]) }} />}
 
+      <Modal open={proxyDiagnosticsOpen} title={t('Proxy check results')} onClose={() => setProxyDiagnosticsOpen(false)}>
+        <p className="mb-4 text-ink-dim">{t('Proxy checks do not change the last browser exit.')}</p>
+        {checkingProxies.size > 0 && <p className="mb-3 text-ink-dim">{t('Checking… ({count})', { count: checkingProxies.size })}</p>}
+        {proxyDiagnostics.map(({ name, record }, index) => {
+          const health = readProxyCheck(record, locale)
+          return <div key={index} className="mb-4 rounded border border-line p-3">
+            <p className="font-medium">{name}</p>
+            <p className={health.tone === 'ok' ? 'text-ok' : health.tone === 'danger' ? 'text-danger' : 'text-warn'}>{health.label}</p>
+            {record.ip && <p className="font-mono">{record.ip} · {record.country || t('Unknown location')}</p>}
+            <p className="mt-2 whitespace-pre-line text-ink-dim">{health.detail}</p>
+          </div>
+        })}
+      </Modal>
+      {quickEdit && <ProfileQuickEdit profile={quickEdit.profile} field={quickEdit.field} onClose={() => setQuickEdit(null)} onSaved={updated => { updateEpoch.current += 1; profileReads.current.dispose(); profileReads.current.resume(); setProfiles(current => current.map(item => item.id === updated.id ? updated : item)) }} />}
       <ProfileForm
         open={formOpen}
         profile={editing}
         groups={groups}
         onClose={() => setFormOpen(false)}
-        onSaved={loadProfiles}
+        onSaved={updated => {
+          if (!updated) { void loadProfiles(); return }
+          updateEpoch.current += 1; profileReads.current.dispose(); profileReads.current.resume()
+          setProfiles(current => current.some(item => item.id === updated.id) ? current.map(item => item.id === updated.id ? updated : item) : [...current, updated])
+          if ((search && !updated.name.toLowerCase().includes(search.toLowerCase()) && !updated.id.includes(search)) || (groupFilter && updated.group !== groupFilter && groupFilter !== '__ungrouped__') || (statusFilter !== 'all' && statusFilter !== updated.status) || !tagFilters.every(tag => updated.tags?.includes(tag))) toast('ok', t('Profile saved; current filters may hide it.'))
+        }}
       />
 
       <ConfirmDialog
@@ -1077,51 +1195,6 @@ export default function ProfilesPage() {
  * second line only exists once there is something to say, so a list nobody has
  * checked looks exactly as it did before.
  */
-function ProxyCell({ profile, checking }: { profile: Profile; checking: boolean }) {
-  const { t } = useI18n()
-  const configured = formatProxyString(profile.proxy_config) || '—'
-  const check = profile.proxy_check
-
-  return (
-    // Bounded, because a table cell grows to fit its content: an unreachable
-    // proxy reports a whole sentence, and without a cap one dead proxy pushed
-    // the row actions off the screen and gave the table a scrollbar.
-    <div className="max-w-[280px] leading-tight">
-      <div className="truncate font-mono text-ink-faint">{configured}</div>
-      {checking ? (
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-faint">
-          <span className="signal-pulse h-1.5 w-1.5 rounded-full bg-signal" />
-          {t('Checking…')}
-        </div>
-      ) : check ? (
-        <ProxyResult check={check} />
-      ) : null}
-    </div>
-  )
-}
-
-function ProxyResult({ check }: { check: ProxyCheckRecord }) {
-  const { locale } = useI18n()
-  const { tone, label, detail } = readProxyCheck(check, locale)
-  const dot = tone === 'ok' ? 'bg-ok' : tone === 'warn' ? 'bg-warn' : 'bg-danger'
-  // Latency and country only mean something when the proxy answered; when it did
-  // not, the reason is the only thing worth the space.
-  const parts = check.reachable
-    ? [check.ip, check.country, check.latency_ms !== null ? `${check.latency_ms} ms` : null]
-    : [check.error]
-
-  return (
-    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-faint" title={detail}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-      <span className="sr-only">{label}.</span>
-      {/* min-w-0 so this is the part that gives way: a flex item will not shrink
-          below its content without it, and the truncation never happens. */}
-      <span className="min-w-0 truncate font-mono">{parts.filter(Boolean).join(' · ')}</span>
-      <span className="shrink-0 text-ink-dim/70">· {formatLastUsed(check.checked_at, locale)}</span>
-    </div>
-  )
-}
-
 function StatusCell({ status, running }: { status: string; running: boolean }) {
   const { t } = useI18n()
   if (running) {

@@ -88,6 +88,7 @@ export interface Profile {
   fingerprint?: FingerprintSummary | null
   /** Null until the proxy is checked, and again whenever the proxy changes. */
   proxy_check?: ProxyCheckRecord | null
+  last_browser_exit?: BrowserExitRecord | null
   /**
    * Bumped by every save. Sent back with an edit so that a save someone else
    * landed in the meantime is refused rather than silently overwritten.
@@ -258,7 +259,16 @@ export interface ProxyCheck {
   checked_at: string | null
 }
 
-/** The last answer a profile's proxy gave, as the list shows it. */
+export interface BrowserExitRecord {
+  checked_at: string
+  ip: string
+  country: string | null
+  timezone: string | null
+  proxy_changed: boolean
+  legacy: boolean
+}
+
+/** A proxy diagnostic, independent of the browser's last actual exit. */
 export interface ProxyCheckRecord {
   checked_at: string
   reachable: boolean
@@ -330,7 +340,7 @@ export interface ProfileViewConfig {
   status: 'all' | 'active' | 'inactive' | 'blocked' | 'maintenance'
   group: string | null
   tags: string[]
-  sort_key: 'name' | 'id' | 'group' | 'os' | 'status' | 'last_used'
+  sort_key: 'name' | 'id' | 'group' | 'os' | 'status' | 'last_used' | 'created_at'
   sort_direction: 'asc' | 'desc'
 }
 
@@ -441,6 +451,7 @@ export const profilesAPI = {
   // The same check for a profile that is still being filled in, so the form can
   // answer before anything is saved.
   checkUnsavedProxy(body: {
+    profile_id?: string
     proxy_config: Record<string, unknown> | null
     browser_settings: Record<string, unknown>
   }): Promise<ProxyCheck> {

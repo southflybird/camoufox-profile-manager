@@ -293,6 +293,7 @@ dependencies = [
 
 [package.optional-dependencies]
 build = [
+    { name = "keyring" },
     { name = "pyinstaller" },
     { name = "pywebview" },
 ]
@@ -302,6 +303,7 @@ chrome-migration = [
     { name = "pyyaml" },
 ]
 desktop = [
+    { name = "keyring" },
     { name = "pywebview" },
 ]
 dev = [
@@ -332,6 +334,8 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpcore", specifier = "==1.0.9" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28" },
+    { name = "keyring", marker = "extra == 'build'", specifier = ">=25.7,<26" },
+    { name = "keyring", marker = "extra == 'desktop'", specifier = ">=25.7,<26" },
     { name = "keyring", marker = "extra == 'sync'", specifier = ">=25.7,<26" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },

@@ -60,8 +60,8 @@ chrome-migration = [
     # Gated to Windows so a macOS/Linux install of the extra never pulls it in.
     "pywin32>=306; sys_platform == 'win32'",
 ]
-desktop = ["pywebview>=5.0"]
-build = ["pywebview>=5.0", "pyinstaller>=6.0"]
+desktop = ["pywebview>=5.0", "keyring>=25.7,<26"]
+build = ["pywebview>=5.0", "pyinstaller>=6.0", "keyring>=25.7,<26"]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",

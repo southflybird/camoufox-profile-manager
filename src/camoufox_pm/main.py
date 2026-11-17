@@ -26,6 +26,7 @@ from camoufox_pm.api.routes import (
     access,
     auth,
     cookies,
+    events,
     extensions,
     groups,
     profiles,
@@ -55,6 +56,9 @@ maintenance_gate = MaintenanceGate(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize shared resources on startup and clean up on shutdown."""
+    from camoufox_pm.core import events as profile_events
+
+    profile_events.stopping = False
     logger.info("Starting Camoufox Profile Manager API...")
 
     if maintenance_gate.blocked:
@@ -182,6 +186,7 @@ protected = [Depends(require_auth)]
 # pre-0.2 unversioned /api so existing scripts keep working; those copies are
 # left out of the schema so a generated client sees each operation once.
 for _prefix, _in_schema in (("/api/v1", True), ("/api", False)):
+    app.include_router(events.router, prefix=_prefix, tags=["Events"], include_in_schema=_in_schema)
     # Unguarded on purpose: login has to work logged out, and /auth/session is
     # how the UI decides whether to show the login screen.
     app.include_router(

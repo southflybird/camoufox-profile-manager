@@ -11,8 +11,10 @@ from loguru import logger
 from pydantic import ValidationError
 
 from .crypto import decrypt, encrypt
+from .events import changed
 from .leases import lease_expired
 from .models import (
+    BrowserExitRecord,
     Profile,
     ProfileGroup,
     ProfileStatus,
@@ -105,6 +107,7 @@ class DatabaseManager:
             "profiles": [
                 ("fingerprint", "TEXT"),
                 ("proxy_check", "TEXT"),
+                ("last_browser_exit", "TEXT"),
                 # Lease columns (see core/leases.py). NULL means free, which is
                 # what an existing row gets when the column is added — every
                 # profile in an upgraded database starts unleased.
@@ -118,6 +121,8 @@ class DatabaseManager:
                 ("tags", "TEXT NOT NULL DEFAULT '[]'"),
             ],
         }
+        if not self._connection.in_transaction:
+            self._connection.execute("BEGIN IMMEDIATE")
         for table, columns in added_columns.items():
             cursor = self._connection.execute(f"PRAGMA table_info({table})")
             existing = {row["name"] for row in cursor.fetchall()}
@@ -125,6 +130,29 @@ class DatabaseManager:
                 if name in existing:
                     continue
                 self._connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
+                if table == "profiles" and name == "last_browser_exit":
+                    # One-time compatibility import. Never copy future manual
+                    # checks into launch history when the database reopens.
+                    for row in self._connection.execute(
+                        "SELECT id, proxy_check FROM profiles WHERE last_used IS NOT NULL "
+                        "AND proxy_check IS NOT NULL"
+                    ).fetchall():
+                        try:
+                            check = ProxyCheckRecord.model_validate_json(row["proxy_check"])
+                        except ValidationError:
+                            continue
+                        if check.reachable and check.ip:
+                            record = BrowserExitRecord(
+                                checked_at=check.checked_at,
+                                ip=check.ip,
+                                country=check.country,
+                                timezone=check.timezone,
+                                legacy=True,
+                            )
+                            self._connection.execute(
+                                "UPDATE profiles SET last_browser_exit = ? WHERE id = ?",
+                                (record.model_dump_json(), row["id"]),
+                            )
                 logger.info(f"Migrated {table}: added column {name}")
         self._connection.commit()
 
@@ -322,6 +350,7 @@ class DatabaseManager:
         running. ``DO UPDATE`` names only the columns a save owns, and the ones
         it does not name keep their values.
         """
+        proxy_changed = self._profile_proxy_changed(profile)
         self._connection.execute(
             """
             INSERT INTO profiles (
@@ -347,7 +376,31 @@ class DatabaseManager:
         """,
             self._profile_columns(profile),
         )
+        if proxy_changed:
+            self._mark_browser_exit_proxy_changed(profile.id)
 
+    def _profile_proxy_changed(self, profile: Profile) -> bool:
+        row = self._connection.execute(
+            "SELECT proxy_config FROM profiles WHERE id = ?", (profile.id,)
+        ).fetchone()
+        if row is None:
+            return False
+        previous = (
+            _deserialize_proxy(json.loads(row["proxy_config"])) if row["proxy_config"] else None
+        )
+        return previous != profile.proxy
+
+    def _mark_browser_exit_proxy_changed(self, profile_id: str) -> None:
+        # Launch history is never part of a whole-profile save. Update only its
+        # hint so even an editor holding an old snapshot cannot revert the IP.
+        self._connection.execute(
+            "UPDATE profiles SET last_browser_exit = "
+            "json_set(last_browser_exit, '$.proxy_changed', json('true')) "
+            "WHERE id = ? AND json_valid(last_browser_exit)",
+            (profile_id,),
+        )
+
+    @changed
     async def insert_profile_if_absent(self, profile: Profile) -> bool:
         """Reserve a new local identity without overwriting an existing/trash row."""
         connection = self._connection
@@ -374,6 +427,7 @@ class DatabaseManager:
         finally:
             connection.execute(f"PRAGMA synchronous={previous}")
 
+    @changed
     async def save_profile(self, profile: Profile, expected_row_version: int | None = None):
         """Save a profile.
 
@@ -401,6 +455,7 @@ class DatabaseManager:
         exist yet, and silently inserting one would turn "somebody deleted this
         profile while you were editing it" into a resurrection.
         """
+        proxy_changed = self._profile_proxy_changed(profile)
         cursor = self._connection.execute(
             """
             UPDATE profiles SET
@@ -414,6 +469,8 @@ class DatabaseManager:
         )
         if cursor.rowcount == 0:
             raise StaleWriteError(profile.id, expected_row_version)
+        if proxy_changed:
+            self._mark_browser_exit_proxy_changed(profile.id)
         # Keep the caller's copy in step with the row it just wrote: the next
         # edit reads its row_version, and it must be the one this write produced.
         profile.row_version = expected_row_version + 1
@@ -435,6 +492,7 @@ class DatabaseManager:
         await self.save_profile(profile, expected_row_version)
         logger.debug(f"Profile {profile.name} updated")
 
+    @changed
     async def durable_update_profile(self, profile: Profile, expected_row_version: int) -> None:
         """Publish a journalled profile pointer with a FULL-synchronous CAS commit.
 
@@ -461,6 +519,16 @@ class DatabaseManager:
         finally:
             connection.execute(f"PRAGMA synchronous={previous}")
 
+    @changed
+    async def set_browser_exit(self, profile_id: str, record: BrowserExitRecord) -> None:
+        """Commit only successful launch history; edits and diagnostics cannot overwrite it."""
+        self._connection.execute(
+            "UPDATE profiles SET last_browser_exit = ? WHERE id = ? AND deleted_at IS NULL",
+            (record.model_dump_json(), profile_id),
+        )
+        self._connection.commit()
+
+    @changed
     async def set_proxy_check(self, profile_id: str, record: ProxyCheckRecord | None) -> None:
         """Write only the proxy check, leaving every other column alone.
 
@@ -477,6 +545,7 @@ class DatabaseManager:
         )
         self._connection.commit()
 
+    @changed
     async def set_launch_pin(
         self, profile_id: str, fingerprint: dict | None, last_used: datetime
     ) -> None:
@@ -501,6 +570,7 @@ class DatabaseManager:
         )
         self._connection.commit()
 
+    @changed
     async def delete_profile(self, profile_id: str) -> bool:
         """Delete a profile, and the schedules that would otherwise fire against it."""
         self._connection.execute(
@@ -518,6 +588,7 @@ class DatabaseManager:
 
         return deleted
 
+    @changed
     async def set_profile_trashed(self, profile_id: str, trashed: bool) -> bool:
         """Retain the row and directory; pause schedules when moving into trash."""
         with self._connection:
@@ -590,6 +661,7 @@ class DatabaseManager:
             f"SELECT COUNT(*) FROM profiles WHERE {predicate}", params
         ).fetchone()[0]
 
+    @changed
     async def set_profile_tags(
         self, profile_id: str, tags: list[str], expected_row_version: int
     ) -> Profile:
@@ -613,6 +685,7 @@ class DatabaseManager:
 
     # --- Profile groups ---
 
+    @changed
     async def save_profile_group(self, group: ProfileGroup):
         """Save a profile group."""
         self._connection.execute(
@@ -656,6 +729,7 @@ class DatabaseManager:
 
         return groups
 
+    @changed
     async def delete_profile_group(self, group_id: str) -> bool:
         """Delete a profile group."""
         # Ungroup the profiles that belonged to this group
@@ -752,6 +826,7 @@ class DatabaseManager:
         row = cursor.fetchone()
         return dict(row) if row else None
 
+    @changed
     async def update_user_password(self, username: str, password_hash: str, actor=None) -> bool:
         return await self.update_user_access(username, password_hash=password_hash, actor=actor)
 
@@ -768,6 +843,7 @@ class DatabaseManager:
             ):
                 raise ValueError("Cannot remove the last administrator")
 
+    @changed
     async def update_user_access(self, username, role=None, password_hash=None, actor=None):
         with self._connection:
             self._connection.execute("BEGIN IMMEDIATE")
@@ -792,6 +868,7 @@ class DatabaseManager:
                 self._audit(actor, "user.update", username, "success")
         return True
 
+    @changed
     async def delete_user(self, username: str, actor=None) -> bool:
         with self._connection:
             self._connection.execute("BEGIN IMMEDIATE")
@@ -845,6 +922,7 @@ class DatabaseManager:
             "SELECT COUNT(*) FROM audit_events" + where, values
         ).fetchone()[0]
 
+    @changed
     async def set_profile_grant(self, username, profile_id, can_export=False, actor=None):
         with self._connection:
             self._connection.execute(
@@ -854,6 +932,7 @@ class DatabaseManager:
             if actor is not None:
                 self._audit(actor, "grant.set", f"{username}/{profile_id}", "success")
 
+    @changed
     async def delete_profile_grant(self, username, profile_id, actor=None):
         with self._connection:
             cursor = self._connection.execute(
@@ -1231,6 +1310,13 @@ class DatabaseManager:
                 # one unreadable value. Losing the dot is the right cost.
                 logger.warning(f"Profile {row['id']}: unreadable proxy check, ignoring ({error})")
 
+        browser_exit = None
+        if "last_browser_exit" in keys and row["last_browser_exit"]:
+            try:
+                browser_exit = BrowserExitRecord.model_validate_json(row["last_browser_exit"])
+            except ValidationError:
+                logger.warning(f"Profile {row['id']}: unreadable browser exit, ignoring")
+
         return Profile(
             id=row["id"],
             name=row["name"],
@@ -1247,6 +1333,7 @@ class DatabaseManager:
             last_used=datetime.fromisoformat(row["last_used"]) if row["last_used"] else None,
             fingerprint=fingerprint,
             proxy_check=stored_check,
+            last_browser_exit=browser_exit,
             row_version=row["row_version"],
             deleted_at=datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None,
         )
@@ -1288,6 +1375,9 @@ class StorageManager:
 
     async def set_proxy_check(self, profile_id: str, record: ProxyCheckRecord | None) -> None:
         await self.db.set_proxy_check(profile_id, record)
+
+    async def set_browser_exit(self, profile_id: str, record: BrowserExitRecord) -> None:
+        await self.db.set_browser_exit(profile_id, record)
 
     async def set_launch_pin(
         self, profile_id: str, fingerprint: dict | None, last_used: datetime

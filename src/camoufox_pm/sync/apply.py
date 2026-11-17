@@ -81,9 +81,10 @@ def _json(value: Any) -> bytes:
 
 
 def _profile_digest(profile: Profile) -> str:
-    # StorageManager assigns updated_at during CAS; every other field is bound.
+    # StorageManager assigns updated_at during CAS. Local launch history is not
+    # a synchronized pointer field; exclude it to keep existing journals valid.
     return hashlib.sha256(
-        _json(profile.model_dump(mode="json", exclude={"updated_at"}))
+        _json(profile.model_dump(mode="json", exclude={"updated_at", "last_browser_exit"}))
     ).hexdigest()
 
 

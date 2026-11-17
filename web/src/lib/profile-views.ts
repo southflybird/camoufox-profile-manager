@@ -8,7 +8,7 @@ export function normalizeTag(value: string): string {
 }
 
 export const DEFAULT_VIEW: ProfileViewConfig = { search: '', status: 'all', group: null, tags: [], sort_key: 'name', sort_direction: 'asc' }
-const SORT_KEYS = ['name', 'id', 'group', 'os', 'status', 'last_used']
+const SORT_KEYS = ['name', 'id', 'group', 'os', 'status', 'last_used', 'created_at']
 const STATUSES = ['all', 'active', 'inactive', 'blocked', 'maintenance']
 
 export function readProfileView(params: URLSearchParams): { config: ProfileViewConfig; page: number } {

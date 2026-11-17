@@ -11,6 +11,7 @@ import asyncio
 import pytest
 
 from camoufox_pm.core import proxy_check
+from camoufox_pm.core.models import BrowserExitRecord
 
 TOKYO = proxy_check.ProxyLocation(
     ip="203.0.113.7",
@@ -89,6 +90,85 @@ async def test_an_unsaved_proxy_can_be_checked(client, exit_in_tokyo):
 
     assert checked.status_code == 200
     assert [f["level"] for f in checked.json()["findings"]] == ["warning"]
+
+
+@pytest.mark.asyncio
+async def test_form_check_of_the_saved_proxy_updates_the_list(client, exit_in_tokyo):
+    proxy = {"type": "socks5", "server": "provider.invalid:1080", "username": "u", "password": "p"}
+    created = (
+        await client.post("/api/profiles", json={"name": "form", "proxy_config": proxy})
+    ).json()
+    checked = await client.post(
+        "/api/proxy/check",
+        json={"profile_id": created["id"], "proxy_config": proxy, "browser_settings": {}},
+    )
+    assert checked.status_code == 200
+    assert checked.json()["checked_at"]
+    stored = (await client.get(f"/api/profiles/{created['id']}")).json()
+    assert stored["proxy_check"]["ip"] == TOKYO.ip
+    assert stored["proxy_check"]["country"] == "JP"
+    assert stored["row_version"] == created["row_version"]
+    assert stored["last_browser_exit"] is None
+    rows = (await client.get("/api/profiles")).json()["profiles"]
+    assert (
+        next(row for row in rows if row["id"] == created["id"])["proxy_check"]
+        == stored["proxy_check"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_api_edits_and_both_manual_checks_preserve_browser_exit(client, exit_in_tokyo):
+    from datetime import datetime, timezone
+
+    from camoufox_pm.api.dependencies import get_profile_manager
+
+    created = (await client.post("/api/profiles", json={"name": "history"})).json()
+    profile_id = created["id"]
+    previous = BrowserExitRecord(
+        checked_at=datetime(2026, 11, 14, tzinfo=timezone.utc), ip="198.51.100.9", country="DE"
+    )
+    await get_profile_manager().storage.set_browser_exit(profile_id, previous)
+    for payload in (
+        {"proxy_config": {"type": "http", "server": "new.invalid:8080"}},
+        {"proxy_config": None},
+    ):
+        edited = await client.put(f"/api/profiles/{profile_id}", json=payload)
+        assert edited.status_code == 200
+        assert edited.json()["last_browser_exit"]["ip"] == previous.ip
+        assert edited.json()["last_browser_exit"]["proxy_changed"] is True
+    for path, payload in (
+        (f"/api/profiles/{profile_id}/check-proxy", None),
+        ("/api/proxy/check", {"profile_id": profile_id, "proxy_config": None}),
+    ):
+        checked = await client.post(path, json=payload)
+        assert checked.status_code == 200
+        assert checked.json()["location"]["ip"] == TOKYO.ip
+        stored = (await client.get(f"/api/profiles/{profile_id}")).json()
+        assert stored["last_browser_exit"]["ip"] == previous.ip
+        assert (
+            stored["last_browser_exit"]["checked_at"]
+            == previous.model_dump(mode="json")["checked_at"]
+        )
+
+
+@pytest.mark.asyncio
+async def test_form_check_of_an_unsaved_proxy_does_not_replace_the_saved_exit(
+    client, exit_in_tokyo
+):
+    created = (await client.post("/api/profiles", json={"name": "draft"})).json()
+    await client.post(f"/api/profiles/{created['id']}/check-proxy")
+    before = (await client.get(f"/api/profiles/{created['id']}")).json()["proxy_check"]
+    checked = await client.post(
+        "/api/proxy/check",
+        json={
+            "profile_id": created["id"],
+            "proxy_config": {"type": "http", "server": "new.invalid:8080"},
+        },
+    )
+    assert checked.status_code == 200
+    assert checked.json()["checked_at"] is None
+    after = (await client.get(f"/api/profiles/{created['id']}")).json()["proxy_check"]
+    assert before == after
 
 
 @pytest.mark.asyncio

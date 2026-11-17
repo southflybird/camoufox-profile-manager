@@ -17,10 +17,13 @@ from .extension_library import managed_default_exclusions, resolve_profile_addon
 from .fingerprint_generator import FingerprintGenerator
 from .leases import ProfileLocked, make_lease_holder
 from .models import (
+    BrowserExitRecord,
     BrowserSettings,
     Profile,
     ProfileGroup,
     ProfileStatus,
+    ProxyCheckRecord,
+    ProxyConfig,
     UsageStats,
     generate_profile_id,
     normalize_tags,
@@ -290,7 +293,9 @@ class ProfileManager:
         )
 
         logger.info(f"Profile {profile_id} updated")
-        return profile
+        # Launch history is owned by targeted writes, including its pending
+        # proxy-change hint. Return the committed value, not an editor snapshot.
+        return await self.get_profile(profile_id)
 
     async def delete_profile(self, profile_id: str, remove_data: bool = True) -> bool:
         """Move a profile into recoverable trash; legacy remove_data is ignored."""
@@ -415,6 +420,7 @@ class ProfileManager:
         # The copy shares the source's proxy, so the answer would still be true —
         # but it would read as "this profile was checked", and it never was.
         profile_data["proxy_check"] = None
+        profile_data["last_browser_exit"] = None
 
         new_profile = Profile(**profile_data)
 
@@ -858,6 +864,7 @@ class ProfileManager:
         # network, at some point in the past. Whatever it said, it did not say it
         # here — same reasoning as a clone, and stronger.
         profile.proxy_check = None
+        profile.last_browser_exit = None
         data_dir = Path(profile.get_storage_path(str(self.profiles_dir)))
 
         # Extraction writes into the directory before it can fail, and a profile
@@ -883,6 +890,35 @@ class ProfileManager:
         return profile
 
     # -- Browser control (delegated to BrowserSessionManager) ---------------
+
+    async def record_proxy_check(
+        self, profile_id: str, proxy: ProxyConfig | None, result: proxy_check.ProxyCheckResult
+    ) -> ProxyCheckRecord | None:
+        """Retain an observed exit only while it still belongs to this profile."""
+        current = await self.get_profile(profile_id)
+        if current is None or current.proxy != proxy:
+            return None
+        stored = proxy_check.record(result)
+        await self.storage.set_proxy_check(profile_id, stored)
+        return stored
+
+    async def record_browser_exit(
+        self, profile_id: str, proxy: ProxyConfig | None, result: proxy_check.ProxyCheckResult
+    ) -> None:
+        """Called only after a browser launches; keep the exit that session used."""
+        current = await self.get_profile(profile_id)
+        if current is None or not result.reachable or result.location is None:
+            return
+        await self.storage.set_browser_exit(
+            profile_id,
+            BrowserExitRecord(
+                checked_at=datetime.now().astimezone(),
+                ip=result.location.ip,
+                country=result.location.country,
+                timezone=result.location.timezone,
+                proxy_changed=current.proxy != proxy,
+            ),
+        )
 
     async def launch_browser(
         self,
@@ -1020,17 +1056,18 @@ class ProfileManager:
                 )
             )
 
-            # After the write on purpose: this only touches the launch options, so it
-            # cannot clobber the row, and it is the first await that is allowed to run
-            # between reading the profile and saving it.
-            await proxy_check.prepare_proxy_geoip(profile.proxy, options)
-            await proxy_check.fill_what_geoip_would_have(profile.proxy, options)
-
+            # Resolve once for the launch. Keep history unchanged while starting
+            # or if browser creation fails after the network check succeeds.
+            exit_check = await proxy_check.prepare_proxy_geoip(profile.proxy, options)
+            filled_check = await proxy_check.fill_what_geoip_would_have(profile.proxy, options)
+            exit_check = exit_check or filled_check
             session = await self.browser_sessions.launch(
                 profile_id,
                 options,
                 on_exit=self._on_browser_exit,
             )
+            if exit_check is not None:
+                await self.record_browser_exit(profile_id, profile.proxy, exit_check)
         except (Exception, asyncio.CancelledError):
             # CancelledError is a BaseException, not an Exception: an HTTP client
             # that disconnects mid-launch cancels this coroutine, and a lease must

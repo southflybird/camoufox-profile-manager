@@ -288,6 +288,7 @@ class ProxyInventory:
                     if authorize is not None:
                         await authorize()
                     _stored_password(config.password)
+                    current = await self.storage.get_profile(profile_id)
                     # One targeted, version-checked statement guards both the
                     # requested template and profile. Other profile fields stay
                     # untouched; a copied config never links back to inventory.
@@ -316,6 +317,8 @@ class ProxyInventory:
                                 }
                             )
                         else:
+                            if current and current.proxy != config:
+                                self.storage.db._mark_browser_exit_proxy_changed(profile_id)
                             result["assigned"].append(profile_id)
             except ProfileLocked:
                 result["skipped"].append(

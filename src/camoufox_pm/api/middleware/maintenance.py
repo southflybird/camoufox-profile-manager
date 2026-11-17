@@ -23,6 +23,12 @@ class MaintenanceMiddleware:
             for prefix in ("/api", "/api/v1")
             for suffix in ("", "/cancel", "/apply", "/resume", "/rollback")
         }
+        if path in {"/api/events", "/api/v1/events"}:
+            # The stream performs short admission checks; never hold a lease for its lifetime.
+            if self.gate.blocked:
+                await JSONResponse({"detail": "Maintenance in progress"}, status_code=503)(scope, receive, send)
+                return
+            return await self.app(scope, receive, send)
         if path in controls or not path.startswith("/api/"):
             return await self.app(scope, receive, send)
         try:

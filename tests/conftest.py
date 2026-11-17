@@ -123,5 +123,16 @@ async def profile_manager(tmp_path, monkeypatch, request):
     # tests. A CI worker is not required to carry a 300 MB browser binary.
     if request.node.get_closest_marker("browser") is None:
         monkeypatch.setattr("camoufox_pm.core.browser_install.ensure_browser_ready", lambda: None)
+        from camoufox_pm.core import proxy_check
+
+        async def synthetic_exit(proxy, timeout=proxy_check.DEFAULT_TIMEOUT):
+            return "203.0.113.7", 42
+
+        monkeypatch.setattr(proxy_check, "resolve_exit_ip", synthetic_exit)
+        monkeypatch.setattr(
+            proxy_check,
+            "locate",
+            lambda ip: proxy_check.ProxyLocation(ip=ip, country="JP", timezone="Asia/Tokyo"),
+        )
     yield manager
     await storage.close()
